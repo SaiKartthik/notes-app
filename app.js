@@ -1,83 +1,82 @@
 const notesContainer = document.getElementById("notesContainer");
-const addNoteBtn = document.getElementById("addNoteBtn");
+const addSectionBtn = document.getElementById("addSectionBtn");
+const exportBtn = document.getElementById("exportBtn");
+const importBtn = document.getElementById("importBtn");
+const fileInput = document.getElementById("fileInput");
 
 let notes = JSON.parse(localStorage.getItem("notes")) || [];
 
-// Save to localStorage
 function saveNotes() {
     localStorage.setItem("notes", JSON.stringify(notes));
 }
 
-// Create a note card
+function autoGrow(textarea) {
+    textarea.style.height = "auto";
+    textarea.style.height = textarea.scrollHeight + "px";
+}
+
 function createNote(note, index) {
-    const col = document.createElement("div");
-    col.className = "col-md-6 col-lg-4";
+    const card = document.createElement("div");
+    card.className = "card note-card w-100";
 
-    col.innerHTML = `
-        <div class="card note-card h-100">
-            <div class="card-body d-flex flex-column">
-                <input
-                    class="note-title mb-2"
-                    value="${note.title}"
-                    placeholder="Section Title"
-                />
+    card.innerHTML = `
+        <div class="card-body">
+            <div 
+                class="note-title mb-2" 
+                contenteditable="true"
+            >${note.title}</div>
 
-                <textarea
-                    class="note-text flex-grow-1 mb-2"
-                    rows="6"
-                >${note.content}</textarea>
+            <textarea class="form-control mb-3"
+                ${note.collapsed ? "style='display:none'" : ""}>${note.content}</textarea>
 
-                <div class="d-flex justify-content-between">
-                    <button class="btn btn-sm btn-outline-secondary toggle-btn">
-                        ${note.collapsed ? "Expand" : "Collapse"}
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger delete-btn">
-                        Delete
-                    </button>
-                </div>
+            <div class="d-flex justify-content-between">
+                <button class="btn btn-sm btn-outline-secondary collapse-btn">
+                    ${note.collapsed ? "Expand" : "Collapse"}
+                </button>
+                <button class="btn btn-sm btn-outline-danger delete-btn">
+                    Delete
+                </button>
             </div>
         </div>
     `;
 
-    const titleInput = col.querySelector(".note-title");
-    const textArea = col.querySelector(".note-text");
-    const toggleBtn = col.querySelector(".toggle-btn");
-    const deleteBtn = col.querySelector(".delete-btn");
+    const titleEl = card.querySelector(".note-title");
+    const textarea = card.querySelector("textarea");
+    const collapseBtn = card.querySelector(".collapse-btn");
+    const deleteBtn = card.querySelector(".delete-btn");
 
-    // Rename section
-    titleInput.addEventListener("input", () => {
-        notes[index].title = titleInput.value;
+    // Inline rename
+    titleEl.oninput = () => {
+        note.title = titleEl.textContent.trim() || "Untitled";
         saveNotes();
-    });
+    };
 
-    // Auto-save content
-    textArea.addEventListener("input", () => {
-        notes[index].content = textArea.value;
+    // Auto-grow + auto-save
+    autoGrow(textarea);
+    textarea.oninput = () => {
+        note.content = textarea.value;
+        autoGrow(textarea);
         saveNotes();
-    });
+    };
 
     // Collapse / Expand
-    if (note.collapsed) {
-        textArea.style.display = "none";
-    }
-
-    toggleBtn.addEventListener("click", () => {
-        notes[index].collapsed = !notes[index].collapsed;
+    collapseBtn.onclick = () => {
+        note.collapsed = !note.collapsed;
+        textarea.style.display = note.collapsed ? "none" : "block";
+        collapseBtn.textContent = note.collapsed ? "Expand" : "Collapse";
         saveNotes();
-        renderNotes();
-    });
+    };
 
     // Delete
-    deleteBtn.addEventListener("click", () => {
+    deleteBtn.onclick = () => {
         notes.splice(index, 1);
         saveNotes();
         renderNotes();
-    });
+    };
 
-    return col;
+    return card;
 }
 
-// Render all notes
 function renderNotes() {
     notesContainer.innerHTML = "";
     notes.forEach((note, index) => {
@@ -85,16 +84,46 @@ function renderNotes() {
     });
 }
 
-// Add new section
-addNoteBtn.addEventListener("click", () => {
-    notes.push({
+addSectionBtn.onclick = () => {
+    notes.unshift({
         title: "New Section",
         content: "",
         collapsed: false
     });
     saveNotes();
     renderNotes();
-});
+};
+
+// Export JSON
+exportBtn.onclick = () => {
+    const blob = new Blob([JSON.stringify(notes, null, 2)], {
+        type: "application/json"
+    });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "notes.json";
+    a.click();
+};
+
+// Import JSON
+importBtn.onclick = () => fileInput.click();
+
+fileInput.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+        try {
+            notes = JSON.parse(reader.result);
+            saveNotes();
+            renderNotes();
+        } catch {
+            alert("Invalid JSON file");
+        }
+    };
+    reader.readAsText(file);
+};
 
 // Initial render
 renderNotes();
