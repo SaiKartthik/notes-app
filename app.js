@@ -28,7 +28,6 @@ function render() {
   notes.forEach((note, index) => {
     const section = document.createElement("section");
     section.className = "note";
-    section.draggable = true;
     section.dataset.id = note.id;
 
     section.addEventListener("dragstart", () =>
@@ -58,6 +57,18 @@ function render() {
     title.className = "note-title";
     title.contentEditable = true;
     title.innerText = note.title || "Untitled Note";
+
+    // ✅ Make ONLY the title draggable
+    title.draggable = true;
+
+    title.addEventListener("dragstart", () => {
+      section.classList.add("dragging");
+    });
+
+    title.addEventListener("dragend", () => {
+      section.classList.remove("dragging");
+      save();
+    });
 
     // DO NOT modify innerText during typing
     title.oninput = () => {
@@ -93,10 +104,14 @@ function render() {
     collapseBtn.className = "btn btn-outline-light btn-sm";
     collapseBtn.innerText = note.collapsed ? "Expand" : "Collapse";
     collapseBtn.onclick = () => {
-      note.collapsed = !note.collapsed;
-      save();
-      render();
-    };
+  note.collapsed = !note.collapsed;
+
+  content.classList.toggle("collapsed", note.collapsed);
+  content.classList.toggle("expanded", !note.collapsed);
+
+  collapseBtn.innerText = note.collapsed ? "Expand" : "Collapse";
+  save();
+};
 
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "btn btn-outline-danger btn-sm";
@@ -114,13 +129,22 @@ function render() {
     const content = document.createElement("div");
     content.className = "note-content";
     content.contentEditable = true;
-    content.style.display = note.collapsed ? "none" : "block";
+    content.classList.add(note.collapsed ? "collapsed" : "expanded");
     content.innerHTML = renderMarkdown(note.content);
 
     content.oninput = () => {
       note.content = content.innerText;
-      content.innerHTML = renderMarkdown(note.content);
-      placeCaretAtEnd(content);
+      content.oninput = () => {
+        note.content = content.innerText;
+        save();
+      };
+
+      content.onblur = () => {
+        // Render markdown ONLY when user leaves the editor
+        content.innerHTML = renderMarkdown(note.content);
+        save();
+      };
+
       save();
     };
 
@@ -152,19 +176,19 @@ document.getElementById("addNote").onclick = () => {
   render();
 
   // Auto-focus & select title text
- const firstTitle = container.querySelector(".note-title");
-if (firstTitle) {
-  firstTitle.focus();
+  const firstTitle = container.querySelector(".note-title");
+  if (firstTitle) {
+    firstTitle.focus();
 
-  // Mobile-safe text selection
-  const range = document.createRange();
-  range.selectNodeContents(firstTitle);
+    // Mobile-safe text selection
+    const range = document.createRange();
+    range.selectNodeContents(firstTitle);
 
-  const sel = window.getSelection();
-  sel.removeAllRanges();
-  sel.addRange(range);
-}
-
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+  
 };
 
 document.getElementById("exportNotes").onclick = () => {
@@ -188,6 +212,27 @@ document.getElementById("importNotes").onchange = (e) => {
     render();
   };
   reader.readAsText(file);
+};
+
+document.getElementById("toggleAll").onclick = () => {
+  const shouldCollapse = notes.some(note => !note.collapsed);
+
+  notes.forEach(note => note.collapsed = shouldCollapse);
+
+  document.querySelectorAll(".note-content").forEach(content => {
+    content.classList.toggle("collapsed", shouldCollapse);
+    content.classList.toggle("expanded", !shouldCollapse);
+  });
+
+  document.querySelectorAll(".note-actions button:first-child")
+    .forEach(btn => {
+      btn.innerText = shouldCollapse ? "Expand" : "Collapse";
+    });
+
+  document.getElementById("toggleAll").innerText =
+    shouldCollapse ? "Expand All" : "Collapse All";
+
+  save();
 };
 
 render();
