@@ -1,9 +1,9 @@
-A note-taking app with sections included
+# 📝 Notes App
 
-update log
+A minimal **note-taking web app with sections**, inspired by Google Keep / Notes, but built from scratch using plain **HTML, JavaScript, and Bootstrap**.
 
 {v0.1}
-  Add sections
-  Add full width
-  save to local storage
-  import/export json files
+- Add sections
+- Add full width
+- Save to local storage
+- Import/export json files
