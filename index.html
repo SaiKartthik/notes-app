@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
+    <meta charset="UTF-8">
     <title>Notes</title>
 
     <!-- Bootstrap -->
@@ -13,7 +13,7 @@
     <style>
         body {
             background-color: #000;
-            color: #ddd;
+            color: #eee;
             min-height: 100vh;
         }
 
@@ -23,22 +23,22 @@
         }
 
         .note-title {
-            font-weight: 600;
-            cursor: text;
             color: #fff;
+            font-weight: 600;
+            outline: none;
+            cursor: text;
         }
 
         .note-title:focus {
-            outline: none;
             border-bottom: 1px dashed #555;
         }
 
         textarea {
             background: #1a1a1a !important;
-            color: #ddd !important;
+            color: #eee !important;
             border: 1px solid #333 !important;
-            resize: none;
-            overflow: hidden;
+            resize: none !important;
+            overflow: hidden !important;
         }
 
         textarea:focus {
@@ -52,11 +52,20 @@
 <div class="container-fluid px-4 py-3">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3 class="m-0">📝 Notes</h3>
+
         <div class="d-flex gap-2">
-            <button class="btn btn-outline-light" id="importBtn">Import</button>
-            <button class="btn btn-outline-light" id="exportBtn">Export</button>
-            <button class="btn btn-outline-light" id="addSectionBtn">+ Add Section</button>
-            <input type="file" id="fileInput" hidden />
+            <button class="btn btn-outline-light" id="addSectionBtn">
+                + Add Section
+            </button>
+
+            <button class="btn btn-outline-secondary" id="exportBtn">
+                Export JSON
+            </button>
+
+            <input type="file" id="importInput" hidden />
+            <button class="btn btn-outline-secondary" id="importBtn">
+                Import JSON
+            </button>
         </div>
     </div>
 

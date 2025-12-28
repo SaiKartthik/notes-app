@@ -2,7 +2,7 @@ const notesContainer = document.getElementById("notesContainer");
 const addSectionBtn = document.getElementById("addSectionBtn");
 const exportBtn = document.getElementById("exportBtn");
 const importBtn = document.getElementById("importBtn");
-const fileInput = document.getElementById("fileInput");
+const importInput = document.getElementById("importInput");
 
 let notes = JSON.parse(localStorage.getItem("notes")) || [];
 
@@ -21,18 +21,14 @@ function createNote(note, index) {
 
     card.innerHTML = `
         <div class="card-body">
-            <div 
-                class="note-title mb-2" 
+            <div
+                class="note-title mb-2"
                 contenteditable="true"
             >${note.title}</div>
 
-            <textarea class="form-control mb-3"
-                ${note.collapsed ? "style='display:none'" : ""}>${note.content}</textarea>
+            <textarea class="form-control mb-3">${note.content}</textarea>
 
             <div class="d-flex justify-content-between">
-                <button class="btn btn-sm btn-outline-secondary collapse-btn">
-                    ${note.collapsed ? "Expand" : "Collapse"}
-                </button>
                 <button class="btn btn-sm btn-outline-danger delete-btn">
                     Delete
                 </button>
@@ -42,28 +38,21 @@ function createNote(note, index) {
 
     const titleEl = card.querySelector(".note-title");
     const textarea = card.querySelector("textarea");
-    const collapseBtn = card.querySelector(".collapse-btn");
     const deleteBtn = card.querySelector(".delete-btn");
 
-    // Inline rename
+    // Auto-grow on load
+    autoGrow(textarea);
+
+    // Rename section inline
     titleEl.oninput = () => {
-        note.title = titleEl.textContent.trim() || "Untitled";
+        note.title = titleEl.textContent.trim() || "Untitled Section";
         saveNotes();
     };
 
-    // Auto-grow + auto-save
-    autoGrow(textarea);
+    // Auto-save + auto-grow content
     textarea.oninput = () => {
         note.content = textarea.value;
         autoGrow(textarea);
-        saveNotes();
-    };
-
-    // Collapse / Expand
-    collapseBtn.onclick = () => {
-        note.collapsed = !note.collapsed;
-        textarea.style.display = note.collapsed ? "none" : "block";
-        collapseBtn.textContent = note.collapsed ? "Expand" : "Collapse";
         saveNotes();
     };
 
@@ -87,29 +76,33 @@ function renderNotes() {
 addSectionBtn.onclick = () => {
     notes.unshift({
         title: "New Section",
-        content: "",
-        collapsed: false
+        content: ""
     });
     saveNotes();
     renderNotes();
 };
 
-// Export JSON
+/* EXPORT JSON */
 exportBtn.onclick = () => {
-    const blob = new Blob([JSON.stringify(notes, null, 2)], {
-        type: "application/json"
-    });
+    const blob = new Blob(
+        [JSON.stringify(notes, null, 2)],
+        { type: "application/json" }
+    );
+    const url = URL.createObjectURL(blob);
+
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
+    a.href = url;
     a.download = "notes.json";
     a.click();
+
+    URL.revokeObjectURL(url);
 };
 
-// Import JSON
-importBtn.onclick = () => fileInput.click();
+/* IMPORT JSON */
+importBtn.onclick = () => importInput.click();
 
-fileInput.onchange = (e) => {
-    const file = e.target.files[0];
+importInput.onchange = () => {
+    const file = importInput.files[0];
     if (!file) return;
 
     const reader = new FileReader();
@@ -125,5 +118,5 @@ fileInput.onchange = (e) => {
     reader.readAsText(file);
 };
 
-// Initial render
+/* INITIAL LOAD */
 renderNotes();
