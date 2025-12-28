@@ -1,47 +1,42 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Notes App</title>
+    <meta charset="UTF-8" />
+    <title>Notes</title>
 
     <!-- Bootstrap -->
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
         rel="stylesheet"
-    >
+    />
 
     <style>
         body {
             background-color: #000;
             color: #ddd;
+            min-height: 50vh;
         }
 
         .note-card {
-            background-color: #111;
+            background: #111;
             border: 1px solid #333;
         }
 
         .note-title {
-            background: transparent;
-            border: none;
-            color: #f1f1f1;
-            font-size: 1.1rem;
-            font-weight: bold;
+            cursor: pointer;
+            font-weight: 600;
+             color: #ddd;
         }
 
-        .note-title:focus {
-            outline: none;
-            box-shadow: none;
+        textarea {
+            background: #1a1a1a !important;
+            color: #ddd !important;
+            border: 1px solid #333 !important;
+            resize: none;
+            overflow: hidden;
         }
 
-        .note-text {
-            background-color: #1a1a1a;
-            color: #e0e0e0;
-            border: none;
-            resize: vertical;
-        }
-
-        .note-text:clfocus {
+        textarea:focus {
             outline: none;
             box-shadow: none;
         }
@@ -49,15 +44,24 @@
 </head>
 <body>
 
-<div class="container py-4">
+<div class="container-fluid px-4 py-3">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3>📝 Notes</h3>
-        <button id="addNoteBtn" class="btn btn-outline-light btn-sm">
+        <h3 class="m-0">📝 Notes</h3>
+        <button class="btn btn-outline-light" id="addSectionBtn">
             + Add Section
         </button>
     </div>
 
-    <div id="notesContainer" class="row g-3"></div>
+    <div class="d-flex gap-2">
+        <!-- <button class="btn btn-outline-light" id="addSectionBtn">+ Add Section</button> -->
+        <button class="btn btn-outline-info" id="exportBtn">Export</button>
+        <button class="btn btn-outline-warning" id="importBtn">Import</button>
+        <input type="file" id="importFile" hidden />
+    </div>
+
+
+    <!-- NOTES GO HERE -->
+    <div id="notesContainer" class="d-flex flex-column gap-3"></div>
 </div>
 
 <script src="app.js"></script>

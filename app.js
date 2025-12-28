@@ -1,83 +1,126 @@
+const exportBtn = document.getElementById("exportBtn");
+const importBtn = document.getElementById("importBtn");
+const importFile = document.getElementById("importFile");
 const notesContainer = document.getElementById("notesContainer");
-const addNoteBtn = document.getElementById("addNoteBtn");
+const addSectionBtn = document.getElementById("addSectionBtn");
 
 let notes = JSON.parse(localStorage.getItem("notes")) || [];
 
-// Save to localStorage
 function saveNotes() {
     localStorage.setItem("notes", JSON.stringify(notes));
 }
 
-// Create a note card
 function createNote(note, index) {
-    const col = document.createElement("div");
-    col.className = "col-md-6 col-lg-4";
+    const card = document.createElement("div");
+    card.className = "card note-card w-100";
 
-    col.innerHTML = `
-        <div class="card note-card h-100">
-            <div class="card-body d-flex flex-column">
-                <input
-                    class="note-title mb-2"
-                    value="${note.title}"
-                    placeholder="Section Title"
-                />
+    card.innerHTML = `
+        <div class="card-body">
+           <input 
+                class="note-title form-control bg-transparent text-white border-0 mb-2"
+                value="${note.title}"
+            />
+            <textarea class="form-control mb-3" rows="5"
+                ${note.collapsed ? "style='display:none'" : ""}>${note.content}</textarea>
 
-                <textarea
-                    class="note-text flex-grow-1 mb-2"
-                    rows="6"
-                >${note.content}</textarea>
-
-                <div class="d-flex justify-content-between">
-                    <button class="btn btn-sm btn-outline-secondary toggle-btn">
-                        ${note.collapsed ? "Expand" : "Collapse"}
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger delete-btn">
-                        Delete
-                    </button>
-                </div>
+            <div class="d-flex justify-content-between">
+                <button class="btn btn-sm btn-outline-secondary collapse-btn">
+                    ${note.collapsed ? "Expand" : "Collapse"}
+                </button>
+                <button class="btn btn-sm btn-outline-danger delete-btn">
+                    Delete
+                </button>
             </div>
         </div>
     `;
 
-    const titleInput = col.querySelector(".note-title");
-    const textArea = col.querySelector(".note-text");
-    const toggleBtn = col.querySelector(".toggle-btn");
-    const deleteBtn = col.querySelector(".delete-btn");
+    const titleEl = card.querySelector(".note-title");
+    const textarea = card.querySelector("textarea");
+    const collapseBtn = card.querySelector(".collapse-btn");
+    const deleteBtn = card.querySelector(".delete-btn");
 
     // Rename section
-    titleInput.addEventListener("input", () => {
-        notes[index].title = titleInput.value;
-        saveNotes();
-    });
+    titleEl.setAttribute("contenteditable", "true");
+    titleEl.style.color = "#fff";
 
-    // Auto-save content
-    textArea.addEventListener("input", () => {
-        notes[index].content = textArea.value;
+    titleEl.onblur = () => {
+        const newTitle = titleEl.textContent.trim();
+        if (newTitle === "") {
+            titleEl.textContent = note.title; // revert if empty
+            return;
+        }
+        note.title = newTitle;
         saveNotes();
-    });
+    };
+
+    titleEl.onkeydown = (e) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            titleEl.blur(); // save on Enter
+        }
+    };
+
+    // Auto-save text
+    textarea.oninput = () => {
+            note.content = textarea.value;
+            saveNotes();
+    };
 
     // Collapse / Expand
-    if (note.collapsed) {
-        textArea.style.display = "none";
-    }
-
-    toggleBtn.addEventListener("click", () => {
-        notes[index].collapsed = !notes[index].collapsed;
+    collapseBtn.onclick = () => {
+        note.collapsed = !note.collapsed;
+        textarea.style.display = note.collapsed ? "none" : "block";
+        collapseBtn.textContent = note.collapsed ? "Expand" : "Collapse";
         saveNotes();
-        renderNotes();
-    });
+    };
 
-    // Delete
-    deleteBtn.addEventListener("click", () => {
+        // Delete
+    deleteBtn.onclick = () => {
         notes.splice(index, 1);
         saveNotes();
         renderNotes();
-    });
+    };
 
-    return col;
+    exportBtn.onclick = () => {
+        const blob = new Blob([JSON.stringify(notes, null, 2)], {
+            type: "application/json"
+        });
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "notes.json";
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    importBtn.onclick = () => {
+        importFile.click();
+    };
+
+    importFile.onchange = () => {
+        const file = importFile.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const importedNotes = JSON.parse(e.target.result);
+                if (!Array.isArray(importedNotes)) throw "Invalid file";
+                notes = importedNotes;
+                saveNotes();
+                renderNotes();
+            } catch {
+                alert("Invalid JSON file");
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    return card;
+
 }
 
-// Render all notes
 function renderNotes() {
     notesContainer.innerHTML = "";
     notes.forEach((note, index) => {
@@ -85,16 +128,15 @@ function renderNotes() {
     });
 }
 
-// Add new section
-addNoteBtn.addEventListener("click", () => {
-    notes.push({
+addSectionBtn.onclick = () => {
+    notes.unshift({
         title: "New Section",
         content: "",
         collapsed: false
     });
     saveNotes();
     renderNotes();
-});
+};
 
 // Initial render
 renderNotes();
