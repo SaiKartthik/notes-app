@@ -155,8 +155,16 @@ document.getElementById("addNote").onclick = () => {
   const firstTitle = container.querySelector(".note-title");
   if (firstTitle) {
     firstTitle.focus();
-    document.execCommand("selectAll", false, null);
-  }
+
+    // Mobile-safe text selection
+    const range = document.createRange();
+    range.selectNodeContents(firstTitle);
+
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+}
+
 };
 
 document.getElementById("exportNotes").onclick = () => {

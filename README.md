@@ -6,9 +6,14 @@ TODO:
 - Keyboard shortcuts
 - PWA (offline app)
 
-{v0.2}
+{v0.2} UI Improvements
+- Collapse and expand
+- Drag and drop
+- Edit title and limited to only one line
+- Press enter to go to text section
+- Bug fixes
 
-
+Signed-off-by: Your Name <saikarthikmedepalli@gmail.com>
 {v0.1}
 - Add sections
 - Add full width
