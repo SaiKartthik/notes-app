@@ -6,6 +6,14 @@ TODO:
 - Keyboard shortcuts
 - PWA (offline app)
 
+
+
+{v0.3} Support for mobile
+- Set drag area to title only
+- Support for mobile
+- Improve animations
+- Toggle button to expand and collapse all notes
+
 {v0.2} UI Improvements
 - Collapse and expand
 - Drag and drop
