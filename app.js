@@ -217,22 +217,15 @@ document.getElementById("importNotes").onchange = (e) => {
 document.getElementById("toggleAll").onclick = () => {
   const shouldCollapse = notes.some(note => !note.collapsed);
 
-  notes.forEach(note => note.collapsed = shouldCollapse);
-
-  document.querySelectorAll(".note-content").forEach(content => {
-    content.classList.toggle("collapsed", shouldCollapse);
-    content.classList.toggle("expanded", !shouldCollapse);
+  notes.forEach(note => {
+    note.collapsed = shouldCollapse;
   });
 
-  document.querySelectorAll(".note-actions button:first-child")
-    .forEach(btn => {
-      btn.innerText = shouldCollapse ? "Expand" : "Collapse";
-    });
+  save();
+  render(); // 🔥 REQUIRED for mobile consistency
 
   document.getElementById("toggleAll").innerText =
     shouldCollapse ? "Expand All" : "Collapse All";
-
-  save();
 };
 
 render();
