@@ -28,7 +28,6 @@ function render() {
   notes.forEach((note, index) => {
     const section = document.createElement("section");
     section.className = "note";
-    section.draggable = true;
     section.dataset.id = note.id;
 
     section.addEventListener("dragstart", () =>
@@ -58,6 +57,18 @@ function render() {
     title.className = "note-title";
     title.contentEditable = true;
     title.innerText = note.title || "Untitled Note";
+
+    // ✅ Make ONLY the title draggable
+    title.draggable = true;
+
+    title.addEventListener("dragstart", () => {
+      section.classList.add("dragging");
+    });
+
+    title.addEventListener("dragend", () => {
+      section.classList.remove("dragging");
+      save();
+    });
 
     // DO NOT modify innerText during typing
     title.oninput = () => {
