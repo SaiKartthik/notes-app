@@ -1,77 +1,100 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Notes</title>
+  <meta charset="UTF-8" />
+  <title>📝Notes</title>
 
-    <!-- Bootstrap -->
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
-        rel="stylesheet"
-    />
+  <!-- Bootstrap 5 CDN -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
 
-    <style>
-        body {
-            background-color: #000;
-            color: #eee;
-            min-height: 100vh;
-        }
+  <style>
+    body {
+      background-color: #000;
+      color: #fff;
+      overflow-x: hidden;
+    }
 
-        .note-card {
-            background: #111;
-            border: 1px solid #333;
-        }
+    .note {
+      background-color: #111;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
 
-        .note-title {
-            color: #fff;
-            font-weight: 600;
-            outline: none;
-            cursor: text;
-        }
+    .note.dragging {
+      opacity: 0.4;
+    }
 
-        .note-title:focus {
-            border-bottom: 1px dashed #555;
-        }
+    .note-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
 
-        textarea {
-            background: #1a1a1a !important;
-            color: #eee !important;
-            border: 1px solid #333 !important;
-            resize: none !important;
-            overflow: hidden !important;
-        }
+    .note-title {
+      font-weight: bold;
+      font-size: 1.1rem;
+      outline: none;
+      cursor: text;
+      flex-grow: 1;
+    }
 
-        textarea:focus {
-            outline: none;
-            box-shadow: none;
-        }
-    </style>
+    .note-actions button {
+      margin-left: 6px;
+    }
+
+    .note-content {
+      margin-top: 10px;
+      outline: none;
+      white-space: pre-wrap;
+    }
+
+    .note-content code {
+      background: #222;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+
+    .note-content pre {
+      background: #222;
+      padding: 10px;
+      border-radius: 6px;
+    }
+    .note-title:focus,
+    .note-content:focus {
+        outline: 2px solid #555;
+        outline-offset: 2px;
+        border-radius: 4px;
+    }
+
+  </style>
 </head>
+
 <body>
+  <div class="container-fluid p-3">
 
-<div class="container-fluid px-4 py-3">
+    <!-- TOP BAR -->
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3 class="m-0">📝 Notes</h3>
+      <h4 class="m-0">📝 Dark Notes</h4>
 
-        <div class="d-flex gap-2">
-            <button class="btn btn-outline-light" id="addSectionBtn">
-                + Add Section
-            </button>
-
-            <button class="btn btn-outline-secondary" id="exportBtn">
-                Export JSON
-            </button>
-
-            <input type="file" id="importInput" hidden />
-            <button class="btn btn-outline-secondary" id="importBtn">
-                Import JSON
-            </button>
-        </div>
+      <div class="d-flex gap-2">
+        <button id="exportNotes" class="btn btn-secondary btn-sm">Export</button>
+        <label class="btn btn-secondary btn-sm mb-0">
+          Import
+          <input id="importNotes" type="file" hidden />
+        </label>
+        <button id="addNote" class="btn btn-light btn-sm">+ New</button>
+      </div>
     </div>
 
-    <div id="notesContainer" class="d-flex flex-column gap-3"></div>
-</div>
+    <div id="notesContainer"></div>
+  </div>
 
-<script src="app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

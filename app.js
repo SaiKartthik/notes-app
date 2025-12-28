@@ -1,122 +1,185 @@
-const notesContainer = document.getElementById("notesContainer");
-const addSectionBtn = document.getElementById("addSectionBtn");
-const exportBtn = document.getElementById("exportBtn");
-const importBtn = document.getElementById("importBtn");
-const importInput = document.getElementById("importInput");
-
 let notes = JSON.parse(localStorage.getItem("notes")) || [];
+const container = document.getElementById("notesContainer");
 
-function saveNotes() {
-    localStorage.setItem("notes", JSON.stringify(notes));
+function save() {
+  localStorage.setItem("notes", JSON.stringify(notes));
 }
 
-function autoGrow(textarea) {
-    textarea.style.height = "auto";
-    textarea.style.height = textarea.scrollHeight + "px";
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
-function createNote(note, index) {
-    const card = document.createElement("div");
-    card.className = "card note-card w-100";
-
-    card.innerHTML = `
-        <div class="card-body">
-            <div
-                class="note-title mb-2"
-                contenteditable="true"
-            >${note.title}</div>
-
-            <textarea class="form-control mb-3">${note.content}</textarea>
-
-            <div class="d-flex justify-content-between">
-                <button class="btn btn-sm btn-outline-danger delete-btn">
-                    Delete
-                </button>
-            </div>
-        </div>
-    `;
-
-    const titleEl = card.querySelector(".note-title");
-    const textarea = card.querySelector("textarea");
-    const deleteBtn = card.querySelector(".delete-btn");
-
-    // Auto-grow on load
-    autoGrow(textarea);
-
-    // Rename section inline
-    titleEl.oninput = () => {
-        note.title = titleEl.textContent.trim() || "Untitled Section";
-        saveNotes();
-    };
-
-    // Auto-save + auto-grow content
-    textarea.oninput = () => {
-        note.content = textarea.value;
-        autoGrow(textarea);
-        saveNotes();
-    };
-
-    // Delete
-    deleteBtn.onclick = () => {
-        notes.splice(index, 1);
-        saveNotes();
-        renderNotes();
-    };
-
-    return card;
+function renderMarkdown(text) {
+  return text
+    .replace(/```([\s\S]*?)```/g, "<pre><code>$1</code></pre>")
+    .replace(/^### (.*$)/gim, "<h3>$1</h3>")
+    .replace(/^## (.*$)/gim, "<h2>$1</h2>")
+    .replace(/^# (.*$)/gim, "<h1>$1</h1>")
+    .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>")
+    .replace(/\*(.*?)\*/g, "<i>$1</i>")
+    .replace(/^- (.*$)/gim, "<li>$1</li>")
+    .replace(/(<li>.*<\/li>)/gim, "<ul>$1</ul>")
+    .replace(/\n/g, "<br>");
 }
 
-function renderNotes() {
-    notesContainer.innerHTML = "";
-    notes.forEach((note, index) => {
-        notesContainer.appendChild(createNote(note, index));
-    });
-}
+function render() {
+  container.innerHTML = "";
 
-addSectionBtn.onclick = () => {
-    notes.unshift({
-        title: "New Section",
-        content: ""
-    });
-    saveNotes();
-    renderNotes();
-};
+  notes.forEach((note, index) => {
+    const section = document.createElement("section");
+    section.className = "note";
+    section.draggable = true;
+    section.dataset.id = note.id;
 
-/* EXPORT JSON */
-exportBtn.onclick = () => {
-    const blob = new Blob(
-        [JSON.stringify(notes, null, 2)],
-        { type: "application/json" }
+    section.addEventListener("dragstart", () =>
+      section.classList.add("dragging")
     );
-    const url = URL.createObjectURL(blob);
+    section.addEventListener("dragend", () => {
+      section.classList.remove("dragging");
+      save();
+    });
 
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "notes.json";
-    a.click();
+    section.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      const dragging = document.querySelector(".dragging");
+      if (!dragging || dragging === section) return;
 
-    URL.revokeObjectURL(url);
-};
+      const from = notes.findIndex((n) => n.id === dragging.dataset.id);
+      const to = index;
+      notes.splice(to, 0, notes.splice(from, 1)[0]);
+      render();
+    });
 
-/* IMPORT JSON */
-importBtn.onclick = () => importInput.click();
+    // HEADER
+    const header = document.createElement("div");
+    header.className = "note-header";
 
-importInput.onchange = () => {
-    const file = importInput.files[0];
-    if (!file) return;
+    const title = document.createElement("div");
+    title.className = "note-title";
+    title.contentEditable = true;
+    title.innerText = note.title || "Untitled Note";
 
-    const reader = new FileReader();
-    reader.onload = () => {
-        try {
-            notes = JSON.parse(reader.result);
-            saveNotes();
-            renderNotes();
-        } catch {
-            alert("Invalid JSON file");
-        }
+    // DO NOT modify innerText during typing
+    title.oninput = () => {
+      note.title = title.innerText;
+      save();
     };
-    reader.readAsText(file);
+
+    title.onkeydown = (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+
+        const cleanTitle = title.innerText.replace(/\n/g, "").trim();
+        title.innerText = cleanTitle || "Untitled Note";
+        note.title = title.innerText;
+        save();
+
+        // Move focus to content
+        content.focus();
+      }
+    };
+
+    title.onblur = () => {
+      const cleanTitle = title.innerText.replace(/\n/g, "").trim();
+      title.innerText = cleanTitle || "Untitled Note";
+      note.title = title.innerText;
+      save();
+    };
+
+    const actions = document.createElement("div");
+    actions.className = "note-actions";
+
+    const collapseBtn = document.createElement("button");
+    collapseBtn.className = "btn btn-outline-light btn-sm";
+    collapseBtn.innerText = note.collapsed ? "Expand" : "Collapse";
+    collapseBtn.onclick = () => {
+      note.collapsed = !note.collapsed;
+      save();
+      render();
+    };
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "btn btn-outline-danger btn-sm";
+    deleteBtn.innerText = "Delete";
+    deleteBtn.onclick = () => {
+      notes = notes.filter((n) => n.id !== note.id);
+      save();
+      render();
+    };
+
+    actions.append(collapseBtn, deleteBtn);
+    header.append(title, actions);
+
+    // CONTENT
+    const content = document.createElement("div");
+    content.className = "note-content";
+    content.contentEditable = true;
+    content.style.display = note.collapsed ? "none" : "block";
+    content.innerHTML = renderMarkdown(note.content);
+
+    content.oninput = () => {
+      note.content = content.innerText;
+      content.innerHTML = renderMarkdown(note.content);
+      placeCaretAtEnd(content);
+      save();
+    };
+
+    section.append(header, content);
+    container.appendChild(section);
+  });
+}
+
+function placeCaretAtEnd(el) {
+  const range = document.createRange();
+  const sel = window.getSelection();
+  range.selectNodeContents(el);
+  range.collapse(false);
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+// Buttons
+document.getElementById("addNote").onclick = () => {
+  const newNote = {
+    id: uid(),
+    title: "New Note",
+    content: "",
+    collapsed: false,
+  };
+
+  notes.unshift(newNote);
+  save();
+  render();
+
+  // Auto-focus & select title text
+  const firstTitle = container.querySelector(".note-title");
+  if (firstTitle) {
+    firstTitle.focus();
+    document.execCommand("selectAll", false, null);
+  }
 };
 
-/* INITIAL LOAD */
-renderNotes();
+document.getElementById("exportNotes").onclick = () => {
+  const blob = new Blob([JSON.stringify(notes, null, 2)], {
+    type: "application/json",
+  });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "notes.json";
+  a.click();
+};
+
+document.getElementById("importNotes").onchange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    notes = JSON.parse(reader.result);
+    save();
+    render();
+  };
+  reader.readAsText(file);
+};
+
+render();
