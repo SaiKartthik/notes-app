@@ -152,17 +152,17 @@ document.getElementById("addNote").onclick = () => {
   render();
 
   // Auto-focus & select title text
-  const firstTitle = container.querySelector(".note-title");
-  if (firstTitle) {
-    firstTitle.focus();
+ const firstTitle = container.querySelector(".note-title");
+if (firstTitle) {
+  firstTitle.focus();
 
-    // Mobile-safe text selection
-    const range = document.createRange();
-    range.selectNodeContents(firstTitle);
+  // Mobile-safe text selection
+  const range = document.createRange();
+  range.selectNodeContents(firstTitle);
 
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
 }
 
 };
