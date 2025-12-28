@@ -21,7 +21,6 @@ TODO:
 - Press enter to go to text section
 - Bug fixes
 
-Signed-off-by: Your Name <saikarthikmedepalli@gmail.com>
 {v0.1}
 - Add sections
 - Add full width
