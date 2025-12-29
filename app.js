@@ -261,7 +261,9 @@ updateToggleAllUI(
 
 function renderSection(note, section) {
   const sec = document.createElement("section");
-  sec.className = "note";
+sec.className = "note";
+sec.dataset.sectionId = section.id;
+
   sec.draggable = true;
   sec.dataset.id = section.id;
 
@@ -270,7 +272,7 @@ function renderSection(note, section) {
   sec.addEventListener("dragstart", () => {
   sec.classList.add("opacity-50");
 });
-
+  
 sec.addEventListener("dragend", () => {
   sec.classList.remove("opacity-50");
   save();
@@ -290,14 +292,48 @@ sec.addEventListener("dragover", (e) => {
 });
 
   const title = document.createElement("div");
-  title.className = "note-title";
-  title.contentEditable = true;
-  title.innerText = section.title || "Untitled Section";
+title.className = "note-title";
+title.contentEditable = true;
+title.innerText = section.title || "Untitled Section";
 
-  title.oninput = () => {
-    section.title = title.innerText;
-    save();
-  };
+// Enforce single line + max 50 chars
+title.oninput = () => {
+  let text = title.innerText.replace(/\n/g, ""); // remove newlines
+
+  if (text.length > 50) {
+    text = text.slice(0, 50);
+  }
+
+  // Avoid cursor jump if no change
+  if (title.innerText !== text) {
+    title.innerText = text;
+
+    // place caret at end
+    const range = document.createRange();
+    range.selectNodeContents(title);
+    range.collapse(false);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  section.title = text;
+  save();
+};
+
+// Prevent Enter from creating new line
+title.onkeydown = (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    title.blur();
+
+    // Move focus to content editor
+    requestAnimationFrame(() => {
+      content.focus();
+    });
+  }
+};
+
 
   const actions = document.createElement("div");
   actions.className = "note-actions";
@@ -398,18 +434,40 @@ document.getElementById("addBtn").onclick = () => {
       sel.addRange(range);
     });
 
-  } else {
-    // existing section-add logic stays unchanged
-    const note = notes.find(n => n.id === currentNoteId);
-    note.sections.unshift({
-      id: uid(),
-      title: "New Section",
-      content: "",
-      collapsed: false
-    });
-    save();
-    render();
-  }
+ } else {
+  const note = notes.find(n => n.id === currentNoteId);
+
+  const newSection = {
+    id: uid(),
+    title: "New Section",
+    content: "",
+    collapsed: false
+  };
+
+  note.sections.unshift(newSection);
+  save();
+  render();
+
+  // 👇 Focus section title after render
+  requestAnimationFrame(() => {
+    const sectionEl = document.querySelector(
+      `.note[data-section-id="${newSection.id}"]`
+    );
+    if (!sectionEl) return;
+
+    const titleEl = sectionEl.querySelector(".note-title");
+    if (!titleEl) return;
+
+    titleEl.contentEditable = true;
+    titleEl.focus();
+
+    const range = document.createRange();
+    range.selectNodeContents(titleEl);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  });
+}
 };
 
 document.getElementById("importBtn").onclick = () => {
