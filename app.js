@@ -218,7 +218,11 @@ document.getElementById("importNotes").onchange = (e) => {
   reader.readAsText(file);
 };
 
-document.getElementById("toggleAll").onclick = () => {
+const toggleAllBtn = document.getElementById("toggleAll");
+const toggleAllIcon = document.getElementById("toggleAllIcon");
+const toggleAllText = document.getElementById("toggleAllText");
+
+toggleAllBtn.onclick = () => {
   const shouldCollapse = notes.some(note => !note.collapsed);
 
   notes.forEach(note => {
@@ -238,12 +242,22 @@ document.getElementById("toggleAll").onclick = () => {
     btn.innerText = shouldCollapse ? "Expand" : "Collapse";
   });
 
+  // 🔄 Update toggle-all icon + text
+  if (shouldCollapse) {
+    toggleAllIcon.className = "bi bi-arrows-expand";
+    toggleAllText.innerText = "Expand";
+    toggleAllBtn.title = "Expand all";
+  } else {
+    toggleAllIcon.className = "bi bi-arrows-collapse";
+    toggleAllText.innerText = "Collapse";
+    toggleAllBtn.title = "Collapse all";
+  }
+toggleAllIcon.style.transform = shouldCollapse
+  ? "rotate(180deg)"
+  : "rotate(0deg)";
+
   save();
-
-  document.getElementById("toggleAll").innerText =
-    shouldCollapse ? "Expand All" : "Collapse All";
 };
-
 
 let deferredPrompt = null;
 const installBanner = document.getElementById("installBanner");
