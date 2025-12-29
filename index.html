@@ -1,115 +1,228 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>📝Notes</title>
+<head>
+  <meta charset="UTF-8" />
+  <title>Dark Notes</title>
 
-    <!-- Bootstrap 5 CDN -->
-    <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-    />
+  <!-- Mobile / PWA meta -->
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
 
-    <style>
-      body {
-        background-color: #000;
-        color: #fff;
-        overflow-x: hidden;
+  <!-- PWA manifest -->
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Bootstrap 5 CDN -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+
+  <style>
+    body {
+      background-color: #000;
+      color: #fff;
+      overflow-x: hidden;
+    }
+
+    /* Top bar */
+    .top-bar {
+      position: sticky;
+      top: 0;
+      background: #000;
+      z-index: 100;
+      border-bottom: 1px solid #222;
+    }
+
+    /* Notes */
+    .note {
+      background-color: #111;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .note.dragging {
+      opacity: 0.4;
+    }
+
+    .note-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    /* Title (drag handle) */
+    .note-title {
+      font-weight: bold;
+      font-size: 1.05rem;
+      outline: none;
+      cursor: grab;
+      padding: 4px 6px;
+      border-radius: 4px;
+      transition: background-color 0.15s ease;
+      flex-grow: 1;
+    }
+
+    .note-title:hover {
+      background-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .note-title:active {
+      cursor: grabbing;
+      background-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .note-actions button {
+      margin-left: 6px;
+    }
+
+    /* Content */
+    .note-content {
+      margin-top: 10px;
+      outline: none;
+      white-space: pre-wrap;
+      overflow: hidden;
+      transition: max-height 0.25s ease, opacity 0.2s ease;
+    }
+
+    .note-content.collapsed {
+      max-height: 0;
+      opacity: 0;
+    }
+
+    .note-content.expanded {
+      max-height: 2000px;
+      opacity: 1;
+    }
+
+    .note-content:focus,
+    .note-title:focus {
+      outline: 2px solid #555;
+      outline-offset: 2px;
+    }
+
+    .note-content code {
+      background: #222;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+
+    .note-content pre {
+      background: #222;
+      padding: 10px;
+      border-radius: 6px;
+    }
+
+    /* Buttons */
+    button {
+      min-height: 44px;
+    }
+
+    /* Mobile tweaks */
+    @media (max-width: 576px) {
+      .btn {
+        padding: 6px 10px;
+        font-size: 0.75rem;
       }
+    }
+  </style>
+</head>
 
-      .note {
-        background-color: #111;
-        border: 1px solid #555;
-        border-radius: 6px;
-        padding: 12px;
-        margin-bottom: 12px;
-      }
+<body>
 
-      .note.dragging {
-        opacity: 0.4;
-      }
+  <!-- Install banner -->
+  <div id="installBanner"
+       class="position-fixed bottom-0 start-0 end-0 p-3 bg-dark text-white d-none"
+       style="z-index:1050; border-top:1px solid #333;">
+    <div class="d-flex justify-content-between align-items-center">
+      <span>Install Dark Notes for a better experience</span>
+      <div>
+        <button id="installBtn" class="btn btn-light btn-sm me-2">Install</button>
+        <button id="dismissInstall" class="btn btn-secondary btn-sm">Dismiss</button>
+      </div>
+    </div>
+  </div>
 
-      .note-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-      }
+  <!-- Update toast -->
+  <div id="updateToast"
+       class="position-fixed bottom-0 end-0 m-3 p-3 bg-dark text-white d-none"
+       style="z-index:1050; border:1px solid #333; border-radius:6px;">
+    <div class="d-flex align-items-center gap-3">
+      <span>New version available</span>
+      <button id="refreshApp" class="btn btn-light btn-sm">Refresh</button>
+    </div>
+  </div>
 
-      .note-title {
-        font-weight: bold;
-        font-size: 1.1rem;
-        outline: none;
-        cursor: grab;
-        flex-grow: 1;
-      }
+  <!-- App -->
+  <div class="container-fluid p-3">
 
-      .note-actions button {
-        margin-left: 6px;
-      }
+    <!-- Top bar -->
+    <div class="top-bar pb-2 mb-3">
+      <div class="d-flex justify-content-between align-items-center">
+        <h5 class="m-0">📝 Dark Notes</h5>
 
-      .note-content {
-        margin-top: 10px;
-        outline: none;
-        white-space: pre-wrap;
-        overflow: hidden;
-        transition: max-height 0.25s ease, opacity 0.2s ease;
-      }
-
-      .note-content code {
-        background: #222;
-        padding: 2px 4px;
-        border-radius: 4px;
-      }
-
-      .note-content.collapsed {
-        max-height: 0;
-        opacity: 0;
-      }
-
-      .note-content.expanded {
-        max-height: 2000px; /* big enough for notes */
-        opacity: 1;
-      }
-
-      .note-content pre {
-        background: #222;
-        padding: 10px;
-        border-radius: 6px;
-      }
-      .note-title:focus,
-      .note-content:focus {
-        outline: 2px solid #555;
-        outline-offset: 2px;
-        border-radius: 4px;
-      }
-    </style>
-  </head>
-
-  <body>
-    <div class="container-fluid p-3">
-      <!-- TOP BAR -->
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4 class="m-0">📝 Dark Notes</h4>
-
-        <div class="d-flex gap-2">
-          <button id="exportNotes" class="btn btn-secondary btn-sm">
+        <div class="d-flex align-items-center gap-2 flex-nowrap">
+          <button id="exportNotes" class="btn btn-outline-light btn-sm">
             Export
           </button>
-          <label class="btn btn-secondary btn-sm mb-0">
-            Import
-            <input id="importNotes" type="file" hidden />
-          </label>
-          <button id="toggleAll" class="btn btn-secondary btn-sm">
+           
+          <button id="importBtn" class="btn btn-outline-light btn-sm">
+              Import
+           </button>
+           <input id="importNotes" type="file" hidden />
+
+          <button id="toggleAll" class="btn btn-outline-light btn-sm">
             Toggle Notes
           </button>
-          <button id="addNote" class="btn btn-light btn-sm">+ New</button>
+
+          <button id="addNote" class="btn btn-light btn-sm fw-semibold">
+            + New
+          </button>
         </div>
       </div>
-
-      <div id="notesContainer"></div>
     </div>
 
-    <script src="app.js"></script>
-  </body>
+    <!-- Notes container -->
+    <div id="notesContainer"></div>
+  </div>
+
+  <!-- App logic -->
+  <script src="app.js"></script>
+
+  <!-- Service worker + update handling -->
+  <script>
+    let newWorker;
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("./sw.js").then(registration => {
+        registration.addEventListener("updatefound", () => {
+          newWorker = registration.installing;
+          newWorker.addEventListener("statechange", () => {
+            if (
+              newWorker.state === "installed" &&
+              navigator.serviceWorker.controller
+            ) {
+              document.getElementById("updateToast").classList.remove("d-none");
+            }
+          });
+        });
+      });
+    }
+
+    document.getElementById("refreshApp").onclick = () => {
+      if (newWorker) {
+        newWorker.postMessage({ action: "skipWaiting" });
+      }
+    };
+
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      window.location.reload();
+    });
+  </script>
+
+</body>
 </html>

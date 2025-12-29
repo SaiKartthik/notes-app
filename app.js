@@ -201,6 +201,10 @@ document.getElementById("exportNotes").onclick = () => {
   a.click();
 };
 
+document.getElementById("importBtn").onclick = () => {
+  document.getElementById("importNotes").click();
+};
+
 document.getElementById("importNotes").onchange = (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -219,13 +223,58 @@ document.getElementById("toggleAll").onclick = () => {
 
   notes.forEach(note => {
     note.collapsed = shouldCollapse;
+
+    const section = document.querySelector(
+      `.note[data-id="${note.id}"]`
+    );
+    if (!section) return;
+
+    const content = section.querySelector(".note-content");
+    const btn = section.querySelector(".note-actions button");
+
+    content.classList.toggle("collapsed", shouldCollapse);
+    content.classList.toggle("expanded", !shouldCollapse);
+
+    btn.innerText = shouldCollapse ? "Expand" : "Collapse";
   });
 
   save();
-  render(); // 🔥 REQUIRED for mobile consistency
 
   document.getElementById("toggleAll").innerText =
     shouldCollapse ? "Expand All" : "Collapse All";
 };
+
+
+let deferredPrompt = null;
+const installBanner = document.getElementById("installBanner");
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  // Prevent browser mini-infobar
+  e.preventDefault();
+  deferredPrompt = e;
+
+  // Show custom install banner
+  installBanner.classList.remove("d-none");
+});
+
+document.getElementById("installBtn").onclick = async () => {
+  if (!deferredPrompt) return;
+
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+
+  deferredPrompt = null;
+  installBanner.classList.add("d-none");
+};
+
+document.getElementById("dismissInstall").onclick = () => {
+  installBanner.classList.add("d-none");
+  deferredPrompt = null;
+};
+
+window.addEventListener("appinstalled", () => {
+  installBanner.classList.add("d-none");
+  deferredPrompt = null;
+});
 
 render();

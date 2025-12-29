@@ -4,9 +4,12 @@ A minimal **note-taking web app with sections**, inspired by Google Keep / Notes
 
 TODO:
 - Keyboard shortcuts
-- PWA (offline app)
+- Integrate cloud
+- multiple notes
 
-
+{v0.4} PWA 
+- PWA Application 
+- Fix broken animations
 
 {v0.3} Support for mobile
 - Set drag area to title only
