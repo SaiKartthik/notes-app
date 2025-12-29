@@ -1,4 +1,5 @@
-const CACHE_NAME = "notes-v2";
+const CACHE_NAME = "dark-notes-v1";
+
 const FILES_TO_CACHE = [
   "./",
   "./index.html",
@@ -6,14 +7,14 @@ const FILES_TO_CACHE = [
   "./manifest.json"
 ];
 
-self.addEventListener("install", event => {
+self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(FILES_TO_CACHE))
   );
   self.skipWaiting();
 });
 
-self.addEventListener("activate", event => {
+self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then(keys =>
       Promise.all(
@@ -24,7 +25,7 @@ self.addEventListener("activate", event => {
   self.clients.claim();
 });
 
-self.addEventListener("fetch", event => {
+self.addEventListener("fetch", (event) => {
   event.respondWith(
     caches.match(event.request).then(
       cached => cached || fetch(event.request)
@@ -32,7 +33,7 @@ self.addEventListener("fetch", event => {
   );
 });
 
-self.addEventListener("message", event => {
+self.addEventListener("message", (event) => {
   if (event.data?.action === "skipWaiting") {
     self.skipWaiting();
   }
