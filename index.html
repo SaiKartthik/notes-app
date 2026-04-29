@@ -25,32 +25,33 @@
 
   <style>
     body {
-      background: #000;
-      color: #fff;
+      background: #181818;
+      color: #e8e8e8;
     }
 
     .top-bar {
       position: sticky;
       top: 0;
-      background: #000;
-      border-bottom: 1px solid #222;
+      background: #181818;
+      border-bottom: 1px solid #252525;
       z-index: 10;
     }
 
     .note {
-      background: #111;
-      border: 1px solid #333;
+      background: #222;
+      border: none;
       border-radius: 6px;
-      padding: 12px;
-      margin-bottom: 12px;
+      padding: 8px 12px;
+      margin-bottom: 8px;
     }
 
     .note:hover {
-      background: #151515;
+      background: #282828;
     }
 
     .note-title {
-      font-weight: bold;
+      font-weight: normal;
+      font-size: 0.95rem;
       outline: none;
     }
 
@@ -58,16 +59,30 @@
       margin-top: 8px;
       outline: none;
       white-space: pre-wrap;
+      font-size: 0.78rem;
+      color: #ccc;
+    }
+
+    .note-content a {
+      color: #6ea8fe;
+      text-decoration: underline;
+      word-break: break-all;
+    }
+
+    .note-title a {
+      color: #6ea8fe;
+      text-decoration: underline;
+      word-break: break-all;
     }
 
     .note-content pre {
-      background: #222;
+      background: #2a2a2a;
       padding: 10px;
       border-radius: 6px;
     }
 
     .note-content code {
-      background: #222;
+      background: #2a2a2a;
       padding: 2px 4px;
       border-radius: 4px;
     }
@@ -83,15 +98,71 @@
     #toggleAllIcon {
       transition: transform 0.2s ease;
     }
+
+    .note-completed {
+      opacity: 0.5;
+    }
+
+    .note-completed .note-title {
+      text-decoration: line-through;
+      color: #666 !important;
+    }
+
+    .check-btn {
+      font-size: 1.35rem;
+      line-height: 1;
+      color: #555;
+      transition: color 0.15s;
+      padding: 0;
+      border: none;
+      background: transparent;
+    }
+
+    .check-btn:hover {
+      color: #e53935 !important;
+    }
+
+    .check-btn.checked {
+      color: #e53935;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #e53935;
+      flex-shrink: 0;
+    }
+
+    .completed-divider {
+      border-top: 1px solid #252525;
+      padding-top: 10px;
+      margin: 16px 0 12px;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #444;
+      text-align: center;
+    }
+
+    .page-header {
+      position: sticky;
+      top: 0;
+      background: #181818;
+      border-bottom: 1px solid #252525;
+      z-index: 10;
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+    }
   </style>
 </head>
 
 <body>
 
-<div class="container-fluid p-3">
+<div class="container-fluid p-2">
 
   <!-- TOP BAR -->
-  <div class="top-bar pb-2 mb-3">
+  <div class="top-bar pb-1 mb-2">
     <div class="d-flex flex-column flex-sm-row gap-2 justify-content-between">
 
       <h5 class="m-0">🗂 Notes</h5>

@@ -7,6 +7,18 @@ TODO:
 - Integrate cloud
 - multiple notes
 
+{v0.5} UI & UX Improvements
+- Auto-detect and render clickable links in all text (titles, section headers, note content, page 2 page title)
+- Section headers in page 2 now have a complete/incomplete toggle (red checkmark)
+- Completed sections sink to bottom with a divider (matching page 1 behaviour)
+- Thicker separator line (2px) between section header and content in page 2
+- Increased font size across landing page and page 2 section titles (0.95rem)
+- Section title character limit increased from 50 to 100
+- Single-click delay tuned to 250ms
+- Removed red status dot from landing page note cards
+- Checkmark colour changed from green to red (#e53935)
+- Reduced card padding and overall margins for a denser layout
+
 {v0.4} PWA 
 - PWA Application 
 - Fix broken animations
