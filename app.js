@@ -1,9 +1,13 @@
 let notes = JSON.parse(localStorage.getItem("notes")) || [];
 let currentNoteId = null;
 
-const container = document.getElementById("notesContainer");
-const toggleAllIcon = document.getElementById("toggleAllIcon");
-const toggleAllText = document.getElementById("toggleAllText");
+let container;
+const listContainer   = document.getElementById("notesListContainer");
+const detailContainer = document.getElementById("notesDetailContainer");
+const panelLeft       = document.getElementById("panelLeft");
+const panelRight      = document.getElementById("panelRight");
+const toggleAllIcon   = document.getElementById("toggleAllIcon");
+const toggleAllText   = document.getElementById("toggleAllText");
 
 function moveItem(arr, from, to) {
   if (from === to) return;
@@ -32,6 +36,12 @@ function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
+function formatDate(ts) {
+  if (!ts) return "";
+  const d = new Date(ts);
+  return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 function renderLinks(text = "") {
   return text.replace(/(https?:\/\/[^\s<>"]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
 }
@@ -51,11 +61,24 @@ function renderMarkdown(text = "") {
 /* ---------------- RENDER ---------------- */
 
 function render() {
+  container = listContainer;
   container.innerHTML = "";
-  if (currentNoteId === null) {
-    renderRoot();
-  } else {
+  renderRoot();
+
+  if (currentNoteId !== null) {
+    container = detailContainer;
+    container.innerHTML = "";
+    document.getElementById("detailTitle").innerHTML = renderLinks(
+      notes.find(n => n.id === currentNoteId)?.title || ""
+    );
     renderNoteView(currentNoteId);
+    panelLeft.classList.add("split");
+    panelRight.classList.add("open");
+  } else {
+    panelLeft.classList.remove("split");
+    panelRight.classList.remove("open");
+    detailContainer.innerHTML = "";
+    document.getElementById("detailTitle").innerHTML = "";
   }
 }
 
@@ -139,6 +162,7 @@ function renderRoot() {
     checkBtn.onclick = (e) => {
       e.stopPropagation();
       note.completed = !note.completed;
+      note.completedAt = note.completed ? Date.now() : null;
       save();
       render();
     };
@@ -200,7 +224,7 @@ function renderRoot() {
     right.className = "d-flex align-items-center gap-2 flex-shrink-0";
 
     const count = document.createElement("span");
-    count.className = "text-muted small";
+    count.className = "note-count small";
     count.innerText = `${note.sections.length}`;
 
     const deleteBtn = document.createElement("button");
@@ -228,7 +252,13 @@ function renderRoot() {
       }, 2000);
     };
 
-    right.append(count, deleteBtn);
+    const dateLabel = document.createElement("span");
+    dateLabel.className = "note-date";
+    dateLabel.innerText = note.completed
+      ? formatDate(note.completedAt)
+      : formatDate(note.createdAt);
+
+    right.append(dateLabel, count, deleteBtn);
     card.append(checkBtn, title, right);
     container.appendChild(card);
   });
@@ -243,27 +273,6 @@ function renderNoteView(noteId) {
   const note = notes.find(n => n.id === noteId);
   if (!note) return;
 
-  const header = document.createElement("div");
-  header.className = "page-header d-flex justify-content-between align-items-center";
-
-  const left = document.createElement("div");
-  left.className = "d-flex align-items-center gap-2";
-
-  const backBtn = document.createElement("button");
-  backBtn.className = "btn btn-outline-light btn-sm icon-btn";
-  backBtn.innerHTML = `<i class="bi bi-arrow-left"></i>`;
-  backBtn.onclick = () => {
-    currentNoteId = null;
-    render();
-  };
-
-  const title = document.createElement("h5");
-  title.className = "m-0 fw-semibold";
-  title.innerHTML = renderLinks(note.title);
-
-  left.append(backBtn, title);
-  header.appendChild(left);
-  container.appendChild(header);
   if (note.sections.length === 0) {
     const empty = document.createElement("div");
     empty.className = "text-center mt-5";
@@ -491,6 +500,8 @@ actions.appendChild(deleteBtn);
   };
 
   content.onblur = () => {
+    section.content = section.content.replace(/[\n\r]+$/, "");
+    save();
     content.innerHTML = renderMarkdown(section.content);
   };
 
@@ -499,37 +510,32 @@ actions.appendChild(deleteBtn);
 }
 
 /* -------- BUTTONS -------- */
-document.getElementById("addBtn").onclick = () => {
-  if (currentNoteId === null) {
-    const newNote = {
-      id: uid(),
-      title: "New Note",
-      sections: [],
-      completed: false
-    };
+document.getElementById("addNoteInput").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  const title = e.target.value.trim();
+  if (!title) return;
 
-    notes.unshift(newNote);
-    save();
-    render();
+  const newNote = {
+    id: uid(),
+    title,
+    sections: [],
+    completed: false,
+    createdAt: Date.now()
+  };
 
-    // 👇 Focus & select the new note title
-    requestAnimationFrame(() => {
-      const titles = document.querySelectorAll(".note-title");
-      const titleEl = titles[0]; // first note (unshifted)
+  notes.unshift(newNote);
+  save();
+  e.target.value = "";
+  render();
+});
 
-      if (!titleEl) return;
+document.getElementById("closeDetail").onclick = () => {
+  currentNoteId = null;
+  render();
+};
 
-      titleEl.contentEditable = true;
-      titleEl.focus();
-
-      const range = document.createRange();
-      range.selectNodeContents(titleEl);
-      const sel = window.getSelection();
-      sel.removeAllRanges();
-      sel.addRange(range);
-    });
-
- } else {
+document.getElementById("addSectionBtn").onclick = () => {
+  if (currentNoteId === null) return;
   const note = notes.find(n => n.id === currentNoteId);
 
   const newSection = {
@@ -544,26 +550,21 @@ document.getElementById("addBtn").onclick = () => {
   save();
   render();
 
-  // 👇 Focus section title after render
   requestAnimationFrame(() => {
     const sectionEl = document.querySelector(
       `.note[data-section-id="${newSection.id}"]`
     );
     if (!sectionEl) return;
-
     const titleEl = sectionEl.querySelector(".note-title");
     if (!titleEl) return;
-
     titleEl.contentEditable = true;
     titleEl.focus();
-
     const range = document.createRange();
     range.selectNodeContents(titleEl);
     const sel = window.getSelection();
     sel.removeAllRanges();
     sel.addRange(range);
   });
-}
 };
 
 document.getElementById("importBtn").onclick = () => {

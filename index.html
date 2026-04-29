@@ -24,34 +24,107 @@
   />
 
   <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
     body {
-      background: #181818;
+      background: #0e0d12;
       color: #e8e8e8;
+      margin: 0;
+      overflow: hidden;
     }
 
-    .top-bar {
-      position: sticky;
-      top: 0;
-      background: #181818;
+    /* ---- LAYOUT ---- */
+    .app-wrapper {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .panel-left {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden;
+    }
+
+    .panel-left.split {
+      width: 50%;
+      min-width: 200px;
+      border-right: 1px solid #252525;
+    }
+
+    .panel-right {
+      display: flex;
+      flex-direction: column;
+      width: 0;
+      overflow: hidden;
+      transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .panel-right.open {
+      width: 50%;
+    }
+
+    .panel-header {
+      background: #0e0d12;
       border-bottom: 1px solid #252525;
-      z-index: 10;
+      padding: 8px 12px;
+      flex-shrink: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
     }
 
+    .panel-content {
+      overflow-y: auto;
+      flex: 1;
+      padding: 8px;
+    }
+
+    .add-note-bar {
+      padding: 6px 8px;
+      border-bottom: 1px solid #252525;
+      flex-shrink: 0;
+    }
+
+    .add-note-input {
+      width: 100%;
+      background: #1a1a20;
+      border: 1px solid #333;
+      border-radius: 4px;
+      color: #e8e8e8;
+      padding: 5px 10px;
+      font-size: 0.78rem;
+      outline: none;
+    }
+
+    .add-note-input::placeholder {
+      color: #555;
+    }
+
+    .add-note-input:focus {
+      border-color: #555;
+    }
+
+    /* ---- NOTES ---- */
     .note {
-      background: #222;
+      background: #1a1a20;
       border: none;
       border-radius: 6px;
-      padding: 8px 12px;
-      margin-bottom: 8px;
+      padding: 5px 10px;
+      margin-bottom: 5px;
     }
 
     .note:hover {
-      background: #282828;
+      background: #131317;
     }
 
     .note-title {
       font-weight: normal;
-      font-size: 0.95rem;
+      font-size: 0.78rem;
       outline: none;
     }
 
@@ -76,19 +149,34 @@
     }
 
     .note-content pre {
-      background: #2a2a2a;
+      background: #131317;
       padding: 10px;
       border-radius: 6px;
     }
 
     .note-content code {
-      background: #2a2a2a;
+      background: #131317;
       padding: 2px 4px;
       border-radius: 4px;
     }
 
     .note-actions button {
-      min-width: 44px;
+      min-width: 28px;
+      padding: 2px 5px;
+      font-size: 0.7rem;
+    }
+
+    .note-actions button i {
+      font-size: 0.75rem;
+    }
+
+    .note .icon-btn {
+      min-width: 28px;
+      padding: 2px 5px;
+    }
+
+    .note .icon-btn i {
+      font-size: 0.75rem;
     }
 
     .icon-btn i {
@@ -134,7 +222,21 @@
       flex-shrink: 0;
     }
 
-    .completed-divider {
+    .note-count {
+      font-size: 0.65rem;
+      color: cyan;
+      flex-shrink: 0;
+    }
+
+    .note-date {
+      font-size: 0.65rem;
+      color: #f5c542;
+      flex-shrink: 0;
+    }
+
+    .note-completed .note-date {
+      color: #f5c542;
+    }
       border-top: 1px solid #252525;
       padding-top: 10px;
       margin: 16px 0 12px;
@@ -145,56 +247,101 @@
       text-align: center;
     }
 
-    .page-header {
-      position: sticky;
-      top: 0;
-      background: #181818;
-      border-bottom: 1px solid #252525;
-      z-index: 10;
-      padding-bottom: 12px;
-      margin-bottom: 16px;
+    #detailTitle {
+      font-size: 0.85rem;
+    }
+
+    #detailTitle a {
+      color: inherit;
+      text-decoration: underline;
+    }
+
+    @media (max-width: 768px) {
+      .panel-left,
+      .panel-right {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100% !important;
+        height: 100%;
+        min-width: unset !important;
+        border-right: none !important;
+        transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .panel-left {
+        transform: translateX(0);
+        z-index: 1;
+      }
+
+      .panel-left.split {
+        transform: translateX(-100%);
+      }
+
+      .panel-right {
+        transform: translateX(100%);
+        z-index: 2;
+      }
+
+      .panel-right.open {
+        transform: translateX(0);
+      }
     }
   </style>
 </head>
 
 <body>
 
-<div class="container-fluid p-2">
+<div class="app-wrapper">
 
-  <!-- TOP BAR -->
-  <div class="top-bar pb-1 mb-2">
-    <div class="d-flex flex-column flex-sm-row gap-2 justify-content-between">
-
+  <!-- LEFT PANEL: note list -->
+  <div id="panelLeft" class="panel-left">
+    <div class="panel-header">
       <h5 class="m-0">🗂 Notes</h5>
-
       <div class="d-flex gap-2 flex-wrap">
-
         <button id="exportNotes" class="btn btn-outline-light btn-sm icon-btn" title="Export">
           <i class="bi bi-upload"></i>
           <span class="d-none d-sm-inline ms-1">Export</span>
         </button>
-
         <button id="importBtn" class="btn btn-outline-light btn-sm icon-btn" title="Import">
-  <i class="bi bi-download"></i>
-  <span class="d-none d-sm-inline ms-1">Import</span>
-</button>
-
-<input id="importNotes" type="file" hidden />
-
-        <button id="toggleAll" class="btn btn-outline-light btn-sm icon-btn" title="Collapse all">
-          <i id="toggleAllIcon" class="bi bi-arrows-collapse"></i>
-          <span id="toggleAllText" class="d-none d-sm-inline ms-1">Collapse</span>
+          <i class="bi bi-download"></i>
+          <span class="d-none d-sm-inline ms-1">Import</span>
         </button>
+        <input id="importNotes" type="file" hidden />
+      </div>
+    </div>
+    <div class="add-note-bar">
+      <input id="addNoteInput" type="text" class="add-note-input" placeholder="New note…" />
+    </div>
+    <div id="notesListContainer" class="panel-content"></div>
+  </div>
 
-        <button id="addBtn" class="btn btn-light btn-sm fw-semibold icon-btn">
+  <!-- RIGHT PANEL: note detail -->
+  <div id="panelRight" class="panel-right">
+    <div class="panel-header">
+      <div class="d-flex align-items-center gap-2" style="min-width:0; overflow:hidden;">
+        <button id="closeDetail" class="btn btn-outline-light btn-sm icon-btn flex-shrink-0" title="Close">
+          <i class="bi bi-x-lg"></i>
+        </button>
+        <h5 id="detailTitle" class="m-0 fw-semibold text-truncate"></h5>
+      </div>
+      <div class="d-flex gap-2 flex-shrink-0">
+        <button id="addSectionBtn" class="btn btn-light btn-sm fw-semibold icon-btn">
           <i class="bi bi-plus-lg"></i>
           <span class="d-none d-sm-inline ms-1">Add</span>
         </button>
-
+        <button id="toggleAll" class="btn btn-outline-light btn-sm icon-btn d-none" title="Collapse all">
+          <i id="toggleAllIcon" class="bi bi-arrows-collapse"></i>
+          <span id="toggleAllText" class="d-none d-sm-inline ms-1">Collapse</span>
+        </button>
       </div>
     </div>
+    <div id="notesDetailContainer" class="panel-content"></div>
   </div>
-  <!-- Install banner -->
+
+</div>
+
+<!-- Install banner -->
 <div id="installBanner"
      class="position-fixed bottom-0 start-0 end-0 p-3 bg-dark text-white d-none"
      style="z-index:1050; border-top:1px solid #333;">
@@ -215,10 +362,6 @@
     <span>New version available</span>
     <button id="refreshApp" class="btn btn-light btn-sm">Refresh</button>
   </div>
-</div>
-
-  <!-- CONTENT -->
-  <div id="notesContainer"></div>
 </div>
 
 <script src="app.js"></script>

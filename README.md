@@ -7,6 +7,22 @@ TODO:
 - Integrate cloud
 - multiple notes
 
+{v0.6} Split Panel & Polish
+- Replaced page navigation with animated side-by-side split panel (50/50)
+- Clicking a note slides the detail panel in; ✕ closes it back
+- Replaced Add button with an inline text input — type a title and press Enter to add
+- Add Section button moved to right panel header
+- New color theme: background #0e0d12, cards #1a1a20, selected/hover #131317
+- Decreased card padding and margin for a denser layout
+- Title font size matched to content size (0.78rem)
+- Right panel heading size reduced
+- Delete and action buttons made smaller in both panels
+- Mobile: full-screen page slide animation instead of split panel (≤768px)
+- Created date (DD.MM) shown in yellow at the end of each note title
+- Completion date replaces created date when a note is marked complete
+- Section count shown in cyan next to the note title
+- Auto-strip trailing newlines from section content on blur
+
 {v0.5} UI & UX Improvements
 - Auto-detect and render clickable links in all text (titles, section headers, note content, page 2 page title)
 - Section headers in page 2 now have a complete/incomplete toggle (red checkmark)
