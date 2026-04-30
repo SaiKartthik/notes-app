@@ -6,6 +6,7 @@ const listContainer   = document.getElementById("notesListContainer");
 const detailContainer = document.getElementById("notesDetailContainer");
 const panelLeft       = document.getElementById("panelLeft");
 const panelRight      = document.getElementById("panelRight");
+const panelDivider    = document.getElementById("panelDivider");
 const toggleAllIcon   = document.getElementById("toggleAllIcon");
 const toggleAllText   = document.getElementById("toggleAllText");
 
@@ -17,15 +18,8 @@ function moveItem(arr, from, to) {
 
 function setToggleAllVisibility(visible, disabled = false) {
   const btn = document.getElementById("toggleAll");
-
-  if (!visible) {
-    btn.classList.add("d-none");
-    return;
-  }
-
-  btn.classList.remove("d-none");
   btn.disabled = disabled;
-  btn.style.opacity = disabled ? "0.5" : "1";
+  btn.style.opacity = disabled ? "0.4" : "1";
 }
 
 function save() {
@@ -76,9 +70,18 @@ function render() {
     renderNoteView(currentNoteId);
     panelLeft.classList.add("split");
     panelRight.classList.add("open");
+    panelDivider.classList.add("active");
+    const savedSplit = parseFloat(localStorage.getItem("panelSplit"));
+    if (!isNaN(savedSplit)) {
+      panelLeft.style.width = `${savedSplit}%`;
+      panelRight.style.width = `${100 - savedSplit}%`;
+    }
   } else {
     panelLeft.classList.remove("split");
     panelRight.classList.remove("open");
+    panelDivider.classList.remove("active");
+    panelLeft.style.width = "";
+    panelRight.style.width = "";
     detailContainer.innerHTML = "";
     document.getElementById("detailTitle").innerHTML = "";
   }
@@ -600,23 +603,18 @@ document.getElementById("importNotes").onchange = (e) => {
     try {
       const data = JSON.parse(reader.result);
 
-      if (currentNoteId === null) {
-        if (Array.isArray(data)) {
-          notes = data;
-        } else if (data && typeof data === "object" && Array.isArray(data.sections)) {
-          notes = [data];
-        } else {
-          alert("Import failed: expected an array of notes.");
-          return;
+      if (Array.isArray(data)) {
+        notes = data;
+      } else if (data && typeof data === "object" && Array.isArray(data.notes)) {
+        notes = data.notes;
+        if (typeof data.panelSplit === "number") {
+          localStorage.setItem("panelSplit", data.panelSplit);
         }
+      } else if (data && typeof data === "object" && Array.isArray(data.sections)) {
+        notes = [data];
       } else {
-        const note = notes.find(n => n.id === currentNoteId);
-        if (!note) return;
-        if (Array.isArray(data.sections)) {
-          note.sections = data.sections;
-        } else if (Array.isArray(data)) {
-          note.sections = data;
-        }
+        alert("Import failed: expected an array of notes.");
+        return;
       }
 
       save();
@@ -632,8 +630,11 @@ document.getElementById("importNotes").onchange = (e) => {
 };
 
 document.getElementById("exportNotes").onclick = () => {
+  const panelSplit = parseFloat(localStorage.getItem("panelSplit")) || 50;
+  const exportData = { notes, panelSplit };
+
   const blob = new Blob(
-    [JSON.stringify(notes, null, 2)],
+    [JSON.stringify(exportData, null, 2)],
     { type: "application/json" }
   );
 
@@ -665,8 +666,61 @@ function updateToggleAllUI(collapsed) {
   toggleAllIcon.style.transform = collapsed ? "rotate(180deg)" : "rotate(0deg)";
 }
 
-/* -------- INIT -------- */
+/* -------- PANEL RESIZE -------- */
+let isDragging = false;
 
+panelDivider.addEventListener("mousedown", (e) => {
+  isDragging = true;
+  panelDivider.classList.add("dragging");
+  document.body.style.cursor = "col-resize";
+  document.body.style.userSelect = "none";
+  e.preventDefault();
+});
+
+document.addEventListener("mousemove", (e) => {
+  if (!isDragging) return;
+  const wrapper = document.querySelector(".app-wrapper");
+  const rect = wrapper.getBoundingClientRect();
+  const leftPct = Math.min(Math.max(((e.clientX - rect.left) / rect.width) * 100, 20), 80);
+  panelLeft.style.transition = "none";
+  panelRight.style.transition = "none";
+  panelLeft.style.width = `${leftPct}%`;
+  panelRight.style.width = `${100 - leftPct}%`;
+});
+
+document.addEventListener("mouseup", () => {
+  if (!isDragging) return;
+  isDragging = false;
+  panelDivider.classList.remove("dragging");
+  document.body.style.cursor = "";
+  document.body.style.userSelect = "";
+  panelLeft.style.transition = "";
+  panelRight.style.transition = "";
+  const leftPct = parseFloat(panelLeft.style.width);
+  if (!isNaN(leftPct)) localStorage.setItem("panelSplit", leftPct);
+});
+
+/* -------- THEME -------- */
+const themeToggle = document.getElementById("themeToggle");
+
+function applyTheme(light) {
+  document.body.classList.toggle("light-theme", light);
+  themeToggle.innerHTML = light
+    ? `<i class="bi bi-moon"></i>`
+    : `<i class="bi bi-sun"></i>`;
+}
+
+applyTheme(localStorage.getItem("theme") === "light");
+
+themeToggle.onclick = () => {
+  const isLight = document.body.classList.toggle("light-theme");
+  localStorage.setItem("theme", isLight ? "light" : "dark");
+  themeToggle.innerHTML = isLight
+    ? `<i class="bi bi-moon"></i>`
+    : `<i class="bi bi-sun"></i>`;
+};
+
+/* -------- INIT -------- */
 render();
 
 let deferredPrompt = null;

@@ -27,9 +27,44 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; }
 
+    /* ---- THEME VARIABLES ---- */
+    :root {
+      --bg:               #0e0d12;
+      --bg-card:          #1a1a20;
+      --bg-hover:         #131317;
+      --bg-active:        #1e1e2e;
+      --bg-code:          #131317;
+      --border:           #252525;
+      --text:             #e8e8e8;
+      --text-secondary:   #ccc;
+      --text-muted:       #666;
+      --text-placeholder: #555;
+      --input-border:     #333;
+      --input-focus:      #555;
+      --accent:           #6ea8fe;
+      --divider-color:    #444;
+    }
+
+    body.light-theme {
+      --bg:               #f5f5f7;
+      --bg-card:          #ffffff;
+      --bg-hover:         #ebebeb;
+      --bg-active:        #e8f0fe;
+      --bg-code:          #f0f0f0;
+      --border:           #e0e0e0;
+      --text:             #1a1a20;
+      --text-secondary:   #555;
+      --text-muted:       #888;
+      --text-placeholder: #aaa;
+      --input-border:     #ddd;
+      --input-focus:      #aaa;
+      --accent:           #1a73e8;
+      --divider-color:    #aaa;
+    }
+
     body {
-      background: #0e0d12;
-      color: #e8e8e8;
+      background: var(--bg);
+      color: var(--text);
       margin: 0;
       overflow: hidden;
     }
@@ -53,7 +88,7 @@
     .panel-left.split {
       width: 50%;
       min-width: 200px;
-      border-right: 1px solid #252525;
+      border-right: 1px solid var(--border);
     }
 
     .panel-right {
@@ -69,8 +104,8 @@
     }
 
     .panel-header {
-      background: #0e0d12;
-      border-bottom: 1px solid #252525;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
       padding: 8px 12px;
       flex-shrink: 0;
       display: flex;
@@ -87,32 +122,32 @@
 
     .add-note-bar {
       padding: 6px 8px;
-      border-bottom: 1px solid #252525;
+      border-bottom: 1px solid var(--border);
       flex-shrink: 0;
     }
 
     .add-note-input {
       width: 100%;
-      background: #1a1a20;
-      border: 1px solid #333;
+      background: var(--bg-card);
+      border: 1px solid var(--input-border);
       border-radius: 4px;
-      color: #e8e8e8;
+      color: var(--text);
       padding: 5px 10px;
       font-size: 0.78rem;
       outline: none;
     }
 
     .add-note-input::placeholder {
-      color: #555;
+      color: var(--text-placeholder);
     }
 
     .add-note-input:focus {
-      border-color: #555;
+      border-color: var(--input-focus);
     }
 
     /* ---- NOTES ---- */
     .note {
-      background: #1a1a20;
+      background: var(--bg-card);
       border: none;
       border-radius: 6px;
       padding: 5px 10px;
@@ -120,18 +155,21 @@
     }
 
     .note-active {
-      background: #1e1e2e !important;
-      border-left: 2px solid #6ea8fe;
+      background: var(--bg-active) !important;
+      border-left: 2px solid var(--accent);
     }
 
     .note:hover {
-      background: #131317;
+      background: var(--bg-hover);
     }
 
     .note-title {
       font-weight: normal;
       font-size: 0.78rem;
       outline: none;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      min-width: 0;
     }
 
     .note-content {
@@ -139,29 +177,23 @@
       outline: none;
       white-space: pre-wrap;
       font-size: 0.78rem;
-      color: #ccc;
+      color: var(--text-secondary);
     }
 
-    .note-content a {
-      color: #6ea8fe;
-      text-decoration: underline;
-      word-break: break-all;
-    }
-
-    .note-title a {
-      color: #6ea8fe;
+    .note-content a, .note-title a {
+      color: var(--accent);
       text-decoration: underline;
       word-break: break-all;
     }
 
     .note-content pre {
-      background: #131317;
+      background: var(--bg-code);
       padding: 10px;
       border-radius: 6px;
     }
 
     .note-content code {
-      background: #131317;
+      background: var(--bg-code);
       padding: 2px 4px;
       border-radius: 4px;
     }
@@ -205,26 +237,21 @@
 
     .note-completed .note-title {
       text-decoration: line-through;
-      color: #666 !important;
+      color: var(--text-muted) !important;
     }
 
     .check-btn {
       font-size: 1.35rem;
       line-height: 1;
-      color: #555;
+      color: var(--text-placeholder);
       transition: color 0.15s;
       padding: 0;
       border: none;
       background: transparent;
     }
 
-    .check-btn:hover {
-      color: #e53935 !important;
-    }
-
-    .check-btn.checked {
-      color: #e53935;
-    }
+    .check-btn:hover { color: #e53935 !important; }
+    .check-btn.checked { color: #e53935; }
 
     .status-dot {
       width: 10px;
@@ -236,7 +263,7 @@
 
     .note-count {
       font-size: 0.65rem;
-      color: cyan;
+      color: #4caf50;
       flex-shrink: 0;
     }
 
@@ -246,19 +273,18 @@
       flex-shrink: 0;
     }
 
-    .note-completed .note-date {
-      color: #f5c542;
-    }
-      border-top: 1px solid #252525;
+    .completed-divider {
+      border-top: 1px solid var(--border);
       padding-top: 10px;
       margin: 16px 0 12px;
       font-size: 0.7rem;
       text-transform: uppercase;
       letter-spacing: 1px;
-      color: #444;
+      color: var(--divider-color);
       text-align: center;
     }
 
+    /* ---- ANIMATIONS ---- */
     @keyframes noteEnter {
       from { opacity: 0; transform: translateY(10px); }
       to   { opacity: 1; transform: translateY(0); }
@@ -269,13 +295,8 @@
       to   { opacity: 0; transform: translateY(-10px); }
     }
 
-    .note-enter {
-      animation: noteEnter 0.18s ease forwards;
-    }
-
-    .note-exit {
-      animation: noteExit 0.18s ease forwards;
-    }
+    .note-enter { animation: noteEnter 0.18s ease forwards; }
+    .note-exit  { animation: noteExit  0.18s ease forwards; }
 
     #detailTitle {
       font-size: 0.8rem;
@@ -286,7 +307,84 @@
       text-decoration: underline;
     }
 
+    /* ---- LIGHT THEME BUTTON OVERRIDES ---- */
+    body.light-theme .btn-outline-light {
+      --bs-btn-color: #333;
+      --bs-btn-border-color: #bbb;
+      --bs-btn-hover-bg: #e0e0e0;
+      --bs-btn-hover-color: #111;
+      --bs-btn-hover-border-color: #999;
+      --bs-btn-active-bg: #d0d0d0;
+      --bs-btn-active-color: #111;
+    }
+
+    body.light-theme .btn-light {
+      --bs-btn-bg: #333;
+      --bs-btn-color: #fff;
+      --bs-btn-border-color: #333;
+      --bs-btn-hover-bg: #555;
+      --bs-btn-hover-color: #fff;
+      --bs-btn-hover-border-color: #555;
+    }
+
+    /* ---- TOOLTIPS ---- */
+    [data-tooltip] {
+      position: relative;
+    }
+
+    [data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: unset;
+      top: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #222;
+      color: #e8e8e8;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s;
+      z-index: 100;
+      border: 1px solid #444;
+    }
+
+    [data-tooltip]:hover::after {
+      opacity: 1;
+    }
+
+    #themeToggle[data-tooltip]::after {
+      left: unset;
+      right: 0;
+      transform: none;
+    }
+
+    /* ---- DIVIDER ---- */
+    #panelDivider {
+      width: 4px;
+      flex-shrink: 0;
+      background: var(--border);
+      cursor: col-resize;
+      display: none;
+      transition: background 0.15s;
+      z-index: 5;
+    }
+
+    #panelDivider.active {
+      display: block;
+    }
+
+    #panelDivider:hover,
+    #panelDivider.dragging {
+      background: var(--accent);
+    }
+
+    /* ---- MOBILE ---- */
     @media (max-width: 768px) {
+      #panelDivider { display: none !important; }
       .panel-left,
       .panel-right {
         position: absolute;
@@ -329,15 +427,16 @@
     <div class="panel-header">
       <h5 class="m-0">🗂 Notes</h5>
       <div class="d-flex gap-2 flex-wrap">
-        <button id="exportNotes" class="btn btn-outline-light btn-sm icon-btn" title="Export">
+        <button id="exportNotes" class="btn btn-outline-light btn-sm icon-btn" data-tooltip="Export">
           <i class="bi bi-upload"></i>
-          <span class="d-none d-sm-inline ms-1">Export</span>
         </button>
-        <button id="importBtn" class="btn btn-outline-light btn-sm icon-btn" title="Import">
+        <button id="importBtn" class="btn btn-outline-light btn-sm icon-btn" data-tooltip="Import">
           <i class="bi bi-download"></i>
-          <span class="d-none d-sm-inline ms-1">Import</span>
         </button>
         <input id="importNotes" type="file" hidden />
+        <button id="themeToggle" class="btn btn-outline-light btn-sm icon-btn" data-tooltip="Toggle dark mode">
+          <i class="bi bi-sun"></i>
+        </button>
       </div>
     </div>
     <div class="add-note-bar">
@@ -345,6 +444,9 @@
     </div>
     <div id="notesListContainer" class="panel-content"></div>
   </div>
+
+  <!-- DIVIDER -->
+  <div id="panelDivider"></div>
 
   <!-- RIGHT PANEL: note detail -->
   <div id="panelRight" class="panel-right">
@@ -356,13 +458,13 @@
         <span id="detailTitle" class="m-0 fw-semibold text-truncate"></span>
       </div>
       <div class="d-flex gap-2 flex-shrink-0">
+        <button id="toggleAll" class="btn btn-outline-light btn-sm icon-btn" title="Collapse all">
+          <i id="toggleAllIcon" class="bi bi-arrows-collapse"></i>
+          <span id="toggleAllText" class="d-none d-sm-inline ms-1">Collapse</span>
+        </button>
         <button id="addSectionBtn" class="btn btn-light btn-sm fw-semibold icon-btn">
           <i class="bi bi-plus-lg"></i>
           <span class="d-none d-sm-inline ms-1">Add</span>
-        </button>
-        <button id="toggleAll" class="btn btn-outline-light btn-sm icon-btn d-none" title="Collapse all">
-          <i id="toggleAllIcon" class="bi bi-arrows-collapse"></i>
-          <span id="toggleAllText" class="d-none d-sm-inline ms-1">Collapse</span>
         </button>
       </div>
     </div>

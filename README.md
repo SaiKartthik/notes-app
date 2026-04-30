@@ -7,6 +7,20 @@ TODO:
 - Integrate cloud
 - multiple notes
 
+{v0.7} Resizable Panels, Themes & Polish
+- Light / dark theme toggle (☀/🌙) with preference saved to localStorage
+- CSS custom properties used for all colors — clean theming foundation
+- Draggable divider between left and right panels (20%–80% range)
+- Panel split position saved to localStorage and included in export JSON
+- Import always imports all notes regardless of which note is open
+- Export JSON now includes panel split position for full state restore
+- Icon-only buttons in left panel header with custom CSS tooltips on hover
+- Tooltips appear below buttons, right-aligned for edge buttons
+- Section count color changed from cyan to green
+- Collapse and Add Section buttons swapped in right panel header
+- Long note titles now wrap correctly inside the card (word-break fix)
+- Service worker cache bumped to v2 to force fresh file delivery
+
 {v0.6} Split Panel & Polish
 - Replaced page navigation with animated side-by-side split panel (50/50)
 - Clicking a note slides the detail panel in; ✕ closes it back
