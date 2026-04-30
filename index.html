@@ -6,6 +6,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#000000" />
+  <link rel="icon" type="image/png" href="icon-192.png" />
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -118,6 +119,11 @@
       margin-bottom: 5px;
     }
 
+    .note-active {
+      background: #1e1e2e !important;
+      border-left: 2px solid #6ea8fe;
+    }
+
     .note:hover {
       background: #131317;
     }
@@ -158,6 +164,12 @@
       background: #131317;
       padding: 2px 4px;
       border-radius: 4px;
+    }
+
+    .note-actions {
+      display: flex;
+      gap: 4px;
+      align-items: center;
     }
 
     .note-actions button {
@@ -247,8 +259,26 @@
       text-align: center;
     }
 
+    @keyframes noteEnter {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes noteExit {
+      from { opacity: 1; transform: translateY(0); }
+      to   { opacity: 0; transform: translateY(-10px); }
+    }
+
+    .note-enter {
+      animation: noteEnter 0.18s ease forwards;
+    }
+
+    .note-exit {
+      animation: noteExit 0.18s ease forwards;
+    }
+
     #detailTitle {
-      font-size: 0.85rem;
+      font-size: 0.8rem;
     }
 
     #detailTitle a {
@@ -323,7 +353,7 @@
         <button id="closeDetail" class="btn btn-outline-light btn-sm icon-btn flex-shrink-0" title="Close">
           <i class="bi bi-x-lg"></i>
         </button>
-        <h5 id="detailTitle" class="m-0 fw-semibold text-truncate"></h5>
+        <span id="detailTitle" class="m-0 fw-semibold text-truncate"></span>
       </div>
       <div class="d-flex gap-2 flex-shrink-0">
         <button id="addSectionBtn" class="btn btn-light btn-sm fw-semibold icon-btn">

@@ -15,13 +15,19 @@ TODO:
 - New color theme: background #0e0d12, cards #1a1a20, selected/hover #131317
 - Decreased card padding and margin for a denser layout
 - Title font size matched to content size (0.78rem)
-- Right panel heading size reduced
+- Right panel heading size reduced to 0.8rem
 - Delete and action buttons made smaller in both panels
 - Mobile: full-screen page slide animation instead of split panel (≤768px)
 - Created date (DD.MM) shown in yellow at the end of each note title
 - Completion date replaces created date when a note is marked complete
 - Section count shown in cyan next to the note title
 - Auto-strip trailing newlines from section content on blur
+- Slide-out/slide-in animation when switching between notes
+- Active note highlighted with blue-tinted background and left border accent
+- Gap added between delete and collapse buttons in section headers
+- Export always downloads all notes regardless of which note is open
+- Import robustness: error handling, single-note file support, file input reset
+- Favicon added using app icon
 
 {v0.5} UI & UX Improvements
 - Auto-detect and render clickable links in all text (titles, section headers, note content, page 2 page title)

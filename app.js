@@ -68,6 +68,8 @@ function render() {
   if (currentNoteId !== null) {
     container = detailContainer;
     container.innerHTML = "";
+    detailContainer.classList.add("note-enter");
+    setTimeout(() => detailContainer.classList.remove("note-enter"), 180);
     document.getElementById("detailTitle").innerHTML = renderLinks(
       notes.find(n => n.id === currentNoteId)?.title || ""
     );
@@ -120,6 +122,7 @@ function renderRoot() {
     card.style.cursor = "pointer";
     card.draggable = true;
     card.dataset.id = note.id;
+    if (note.id === currentNoteId) card.classList.add("note-active");
 
     let singleClickTimer = null;
 
@@ -127,8 +130,18 @@ function renderRoot() {
       if (singleClickTimer !== null) return;
       singleClickTimer = setTimeout(() => {
         singleClickTimer = null;
-        currentNoteId = note.id;
-        render();
+        if (currentNoteId !== null && currentNoteId !== note.id) {
+          detailContainer.classList.remove("note-enter");
+          detailContainer.classList.add("note-exit");
+          setTimeout(() => {
+            detailContainer.classList.remove("note-exit");
+            currentNoteId = note.id;
+            render();
+          }, 180);
+        } else {
+          currentNoteId = note.id;
+          render();
+        }
       }, 250);
     };
 
@@ -499,6 +512,13 @@ actions.appendChild(deleteBtn);
     save();
   };
 
+  content.addEventListener("click", (e) => {
+    if (e.target.tagName === "A") {
+      e.preventDefault();
+      window.open(e.target.href, "_blank", "noopener noreferrer");
+    }
+  });
+
   content.onblur = () => {
     section.content = section.content.replace(/[\n\r]+$/, "");
     save();
@@ -577,45 +597,49 @@ document.getElementById("importNotes").onchange = (e) => {
 
   const reader = new FileReader();
   reader.onload = () => {
-    const data = JSON.parse(reader.result);
+    try {
+      const data = JSON.parse(reader.result);
 
-    if (currentNoteId === null) {
-      // Root view → import ALL notes
-      notes = data;
-    } else {
-      // Note view → import sections into THIS note
-      const note = notes.find(n => n.id === currentNoteId);
-      if (!note) return;
-
-      // Expecting either full note or sections array
-      if (Array.isArray(data.sections)) {
-        note.sections = data.sections;
-      } else if (Array.isArray(data)) {
-        note.sections = data;
+      if (currentNoteId === null) {
+        if (Array.isArray(data)) {
+          notes = data;
+        } else if (data && typeof data === "object" && Array.isArray(data.sections)) {
+          notes = [data];
+        } else {
+          alert("Import failed: expected an array of notes.");
+          return;
+        }
+      } else {
+        const note = notes.find(n => n.id === currentNoteId);
+        if (!note) return;
+        if (Array.isArray(data.sections)) {
+          note.sections = data.sections;
+        } else if (Array.isArray(data)) {
+          note.sections = data;
+        }
       }
-    }
 
-    save();
-    render();
+      save();
+      render();
+    } catch {
+      alert("Import failed: invalid JSON file.");
+    } finally {
+      e.target.value = "";
+    }
   };
 
   reader.readAsText(file);
 };
 
 document.getElementById("exportNotes").onclick = () => {
-  const data =
-    currentNoteId === null
-      ? notes
-      : notes.find(n => n.id === currentNoteId);
-
   const blob = new Blob(
-    [JSON.stringify(data, null, 2)],
+    [JSON.stringify(notes, null, 2)],
     { type: "application/json" }
   );
 
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = currentNoteId ? "note.json" : "all-notes.json";
+  a.download = "all-notes.json";
   a.click();
 };
 

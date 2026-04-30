@@ -1,4 +1,4 @@
-const CACHE_NAME = "dark-notes-v1";
+const CACHE_NAME = "dark-notes-v2";
 
 const FILES_TO_CACHE = [
   "./",
