@@ -37,7 +37,9 @@ function formatDate(ts) {
 }
 
 function renderLinks(text = "") {
-  return text.replace(/(https?:\/\/[^\s<>"]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+  return text
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(/(?<![("'])(https?:\/\/[^\s<>"]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
 }
 
 function renderMarkdown(text = "") {
@@ -48,7 +50,8 @@ function renderMarkdown(text = "") {
     .replace(/^# (.*$)/gim, "<h1>$1</h1>")
     .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>")
     .replace(/\*(.*?)\*/g, "<i>$1</i>")
-    .replace(/(https?:\/\/[^\s<>"]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(/(?<![("'])(https?:\/\/[^\s<>"]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
     .replace(/\n/g, "<br>");
 }
 
@@ -60,6 +63,9 @@ function render() {
   renderRoot();
 
   if (currentNoteId !== null) {
+    if (!history.state?.noteOpen) {
+      history.pushState({ noteOpen: true }, "");
+    }
     container = detailContainer;
     container.innerHTML = "";
     detailContainer.classList.add("note-enter");
@@ -155,6 +161,7 @@ function renderRoot() {
     card.addEventListener("dragend", () => {
       card.classList.remove("opacity-50");
       save();
+      render();
     });
 
     card.addEventListener("dragover", (e) => {
@@ -163,8 +170,9 @@ function renderRoot() {
       if (!dragging || dragging === card) return;
       const from = notes.findIndex(n => n.id === dragging.dataset.id);
       const to = notes.findIndex(n => n.id === card.dataset.id);
+      if (from === to) return;
       moveItem(notes, from, to);
-      render();
+      card.parentNode.insertBefore(dragging, from < to ? card.nextSibling : card);
     });
 
     // Checkbox
@@ -349,19 +357,18 @@ sec.dataset.sectionId = section.id;
 sec.addEventListener("dragend", () => {
   sec.classList.remove("opacity-50");
   save();
+  render();
 });
 
 sec.addEventListener("dragover", (e) => {
   e.preventDefault();
-
   const dragging = document.querySelector(".opacity-50");
   if (!dragging || dragging === sec) return;
-
   const from = note.sections.findIndex(s => s.id === dragging.dataset.id);
   const to = note.sections.findIndex(s => s.id === section.id);
-
+  if (from === to) return;
   moveItem(note.sections, from, to);
-  render();
+  sec.parentNode.insertBefore(dragging, from < to ? sec.nextSibling : sec);
 });
 
   if (section.completed) sec.classList.add("note-completed");
@@ -515,6 +522,46 @@ actions.appendChild(deleteBtn);
     save();
   };
 
+  content.addEventListener("paste", (e) => {
+    e.preventDefault();
+    const html  = e.clipboardData.getData("text/html");
+    const plain = e.clipboardData.getData("text/plain").trim();
+
+    // Rich paste: extract anchor tags
+    if (html) {
+      const tmp = document.createElement("div");
+      tmp.innerHTML = html;
+      const anchors = tmp.querySelectorAll("a[href]");
+      if (anchors.length > 0) {
+        const text = Array.from(anchors).map(a => {
+          const href  = a.href;
+          const label = a.innerText.trim() || href;
+          return label === href ? href : `[${label}](${href})`;
+        }).join(" ");
+        document.execCommand("insertText", false, text);
+        section.content = content.innerText;
+        save();
+        return;
+      }
+    }
+
+    // Plain URL: open link modal
+    if (/^https?:\/\/\S+$/.test(plain)) {
+      showLinkModal(plain, (text) => {
+        document.execCommand("insertText", false, text);
+        section.content = content.innerText;
+        save();
+        content.innerHTML = renderMarkdown(section.content);
+      });
+      return;
+    }
+
+    // Plain non-URL text
+    document.execCommand("insertText", false, plain);
+    section.content = content.innerText;
+    save();
+  });
+
   content.addEventListener("click", (e) => {
     if (e.target.tagName === "A") {
       e.preventDefault();
@@ -553,9 +600,20 @@ document.getElementById("addNoteInput").addEventListener("keydown", (e) => {
 });
 
 document.getElementById("closeDetail").onclick = () => {
-  currentNoteId = null;
-  render();
+  if (history.state?.noteOpen) {
+    history.back();
+  } else {
+    currentNoteId = null;
+    render();
+  }
 };
+
+window.addEventListener("popstate", () => {
+  if (currentNoteId !== null) {
+    currentNoteId = null;
+    render();
+  }
+});
 
 document.getElementById("addSectionBtn").onclick = () => {
   if (currentNoteId === null) return;
@@ -700,7 +758,47 @@ document.addEventListener("mouseup", () => {
   if (!isNaN(leftPct)) localStorage.setItem("panelSplit", leftPct);
 });
 
-/* -------- THEME -------- */
+/* -------- LINK MODAL -------- */
+const linkModal        = document.getElementById("linkModal");
+const linkDisplayInput = document.getElementById("linkDisplayInput");
+const linkUrlInput     = document.getElementById("linkUrlInput");
+
+function showLinkModal(url, onInsert) {
+  linkDisplayInput.value = "";
+  linkUrlInput.value = url;
+  linkModal.style.display = "flex";
+  linkDisplayInput.focus();
+
+  // Try to fetch title in background and pre-fill
+  fetch(url)
+    .then(r => r.text())
+    .then(html => {
+      const match = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+      if (match && !linkDisplayInput.value) {
+        linkDisplayInput.value = match[1].trim().replace(/\s+/g, " ");
+      }
+    })
+    .catch(() => {});
+
+  const finish = (confirmed) => {
+    linkModal.style.display = "none";
+    document.removeEventListener("keydown", onKey);
+    if (confirmed) {
+      const display = linkDisplayInput.value.trim();
+      onInsert(display && display !== url ? `[${display}](${url})` : url);
+    }
+  };
+
+  const onKey = (e) => {
+    if (e.key === "Enter")  { e.preventDefault(); finish(true); }
+    if (e.key === "Escape") { e.preventDefault(); finish(false); }
+  };
+
+  document.addEventListener("keydown", onKey);
+  document.getElementById("linkOk").onclick     = () => finish(true);
+  document.getElementById("linkCancel").onclick = () => finish(false);
+  linkModal.onclick = (e) => { if (e.target === linkModal) finish(false); };
+}
 const themeToggle = document.getElementById("themeToggle");
 
 function applyTheme(light) {
