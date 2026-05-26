@@ -178,6 +178,15 @@
       white-space: pre-wrap;
       font-size: 0.78rem;
       color: var(--text-secondary);
+      cursor: text;
+      min-height: 36px;
+    }
+
+    .note-content:empty::before {
+      content: "Click to write...";
+      color: var(--text-placeholder);
+      pointer-events: none;
+      display: block;
     }
 
     .note-content a, .note-title a {
@@ -410,6 +419,44 @@
         transform: translateX(0);
       }
     }
+    #linkHoverTooltip {
+      display: none;
+      position: fixed;
+      z-index: 1500;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 3px 6px;
+      font-size: 0.7rem;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      max-width: 320px;
+    }
+
+    #linkHoverTooltip span {
+      color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 180px;
+    }
+
+    #linkHoverTooltip button {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 3px;
+      font-size: 0.75rem;
+      line-height: 1;
+    }
+
+    #linkHoverTooltip button:hover {
+      background: var(--bg-hover);
+      color: var(--text);
+    }
   </style>
 </head>
 
@@ -422,6 +469,9 @@
     <div class="panel-header">
       <h5 class="m-0">🗂 Notes</h5>
       <div class="d-flex gap-2 flex-wrap">
+        <button id="helpBtn" class="btn btn-outline-light btn-sm icon-btn" data-tooltip="Help">
+          <i class="bi bi-question-circle"></i>
+        </button>
         <button id="exportNotes" class="btn btn-outline-light btn-sm icon-btn" data-tooltip="Export">
           <i class="bi bi-upload"></i>
         </button>
@@ -468,17 +518,82 @@
 
 </div>
 
+<!-- Help modal -->
+<div id="helpModal" style="display:none; position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
+  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:20px; width:420px; max-width:92vw; max-height:85vh; overflow-y:auto; box-shadow:0 8px 32px rgba(0,0,0,0.4);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <span style="font-size:0.88rem; font-weight:600; color:var(--text);">📖 How to use Notes</span>
+      <button id="helpClose" style="background:transparent; border:none; color:var(--text-secondary); font-size:1rem; cursor:pointer; padding:0 4px;">✕</button>
+    </div>
+
+    <div style="font-size:0.72rem; color:var(--text-secondary); line-height:1.7;">
+
+      <div style="color:var(--text); font-weight:600; margin-bottom:4px;">📋 Note List</div>
+      <table style="width:100%; border-collapse:collapse; margin-bottom:12px;">
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Single click</td><td>Open note in right panel</td></tr>
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Double click</td><td>Rename note title</td></tr>
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Drag</td><td>Reorder notes</td></tr>
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Checkmark</td><td>Mark complete / incomplete</td></tr>
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">🗑 (click twice)</td><td>Delete note</td></tr>
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Type + Enter</td><td>Create new note</td></tr>
+      </table>
+
+      <div style="color:var(--text); font-weight:600; margin-bottom:4px;">📄 Note Detail (right panel)</div>
+      <table style="width:100%; border-collapse:collapse; margin-bottom:12px;">
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Click content</td><td>Edit section content</td></tr>
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Double click title</td><td>Rename section</td></tr>
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Drag section</td><td>Reorder sections</td></tr>
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">∧ / ∨ button</td><td>Collapse / expand section</td></tr>
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Add button</td><td>Add new section</td></tr>
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Collapse all</td><td>Toggle all sections at once</td></tr>
+      </table>
+
+      <div style="color:var(--text); font-weight:600; margin-bottom:4px;">🔗 Links</div>
+      <table style="width:100%; border-collapse:collapse; margin-bottom:12px;">
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Paste URL</td><td>Auto-fetches page title as link text</td></tr>
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">[text](url)</td><td>Write a hyperlink in markdown format</td></tr>
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Click link</td><td>Open in new tab</td></tr>
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Hover link</td><td>Show Open / Edit options</td></tr>
+      </table>
+
+      <div style="color:var(--text); font-weight:600; margin-bottom:4px;">✍️ Writing</div>
+      <table style="width:100%; border-collapse:collapse; margin-bottom:12px;">
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;"># Heading</td><td>H1 heading</td></tr>
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">## / ###</td><td>H2 / H3 heading</td></tr>
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">**text**</td><td>Bold</td></tr>
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">*text*</td><td>Italic</td></tr>
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">```code```</td><td>Code block</td></tr>
+      </table>
+
+      <div style="color:var(--text); font-weight:600; margin-bottom:4px;">⚙️ General</div>
+      <table style="width:100%; border-collapse:collapse;">
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">☀ / 🌙</td><td>Toggle light / dark theme</td></tr>
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Drag divider</td><td>Resize left / right panels</td></tr>
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Export</td><td>Save all notes as JSON</td></tr>
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Import</td><td>Load notes from JSON file</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Link hover tooltip -->
+<div id="linkHoverTooltip">
+  <span id="linkHoverUrl"></span>
+  <button id="linkHoverOpen" title="Open"><i class="bi bi-box-arrow-up-right"></i></button>
+  <button id="linkHoverEdit" title="Edit"><i class="bi bi-pencil"></i></button>
+</div>
+
 <!-- Link paste modal -->
 <div id="linkModal" style="display:none; position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,0.4); align-items:center; justify-content:center;">
   <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:16px; width:340px; max-width:90vw; box-shadow:0 8px 24px rgba(0,0,0,0.4);">
-    <div style="font-size:0.78rem; color:var(--text); margin-bottom:8px; font-weight:600;">Insert link</div>
+    <div id="linkModalTitle" style="font-size:0.78rem; color:var(--text); margin-bottom:8px; font-weight:600;">Edit link</div>
     <input id="linkDisplayInput" type="text" placeholder="Display text"
       style="width:100%; background:var(--bg); border:1px solid var(--border); border-radius:4px; color:var(--text); padding:5px 8px; font-size:0.78rem; outline:none; margin-bottom:6px;" />
-    <input id="linkUrlInput" type="text" placeholder="URL" readonly
-      style="width:100%; background:var(--bg); border:1px solid var(--border); border-radius:4px; color:var(--text-placeholder); padding:5px 8px; font-size:0.72rem; outline:none; margin-bottom:10px;" />
+    <input id="linkUrlInput" type="text" placeholder="URL"
+      style="width:100%; background:var(--bg); border:1px solid var(--border); border-radius:4px; color:var(--text); padding:5px 8px; font-size:0.72rem; outline:none; margin-bottom:10px;" />
     <div class="d-flex gap-2 justify-content-end">
       <button id="linkCancel" class="btn btn-outline-light btn-sm">Cancel</button>
-      <button id="linkOk" class="btn btn-light btn-sm">Insert</button>
+      <button id="linkOk" class="btn btn-light btn-sm">Update</button>
     </div>
   </div>
 </div>

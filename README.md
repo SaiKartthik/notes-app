@@ -6,6 +6,7 @@ TODO:
 - Keyboard shortcuts
 - Integrate cloud
 - multiple notes
+- Migrate storage from localStorage to IndexedDB (remove ~5MB cap)
 
 {v0.7} Resizable Panels, Themes & Polish
 - Light / dark theme toggle (☀/🌙) with preference saved to localStorage
@@ -20,6 +21,14 @@ TODO:
 - Collapse and Add Section buttons swapped in right panel header
 - Long note titles now wrap correctly inside the card (word-break fix)
 - Service worker cache bumped to v2 to force fresh file delivery
+- Markdown hyperlink support: [display text](url) in note content and titles
+- Paste URL dialog (Google Docs style): modal to enter display text, auto-fetches page title
+- Rich paste preserves anchor display text from copied HTML
+- Double URL processing bug fixed with negative lookbehind
+- Mobile back button now returns to note list instead of closing the tab (History API)
+- Completed notes sorted by completion date (most recent first)
+- Drag and drop fixed: items can now be dragged to any position freely
+- Completed tasks opacity set to 0.75, no strikethrough
 
 {v0.6} Split Panel & Polish
 - Replaced page navigation with animated side-by-side split panel (50/50)

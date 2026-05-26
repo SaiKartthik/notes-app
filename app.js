@@ -112,7 +112,8 @@ function renderRoot() {
   container.innerHTML = "";
 
   const active = notes.filter(n => !n.completed);
-  const done = notes.filter(n => n.completed);
+  const done = notes.filter(n => n.completed)
+    .sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
   const ordered = [...active, ...done];
   let dividerAdded = false;
 
@@ -136,6 +137,7 @@ function renderRoot() {
     let singleClickTimer = null;
 
     card.onclick = () => {
+      if (title.contentEditable === "true") return;
       if (singleClickTimer !== null) return;
       singleClickTimer = setTimeout(() => {
         singleClickTimer = null;
@@ -208,7 +210,6 @@ function renderRoot() {
       title.focus();
       const range = document.createRange();
       range.selectNodeContents(title);
-      range.collapse(false);
       const sel = window.getSelection();
       sel.removeAllRanges();
       sel.addRange(range);
@@ -242,6 +243,14 @@ function renderRoot() {
       save();
       title.innerHTML = renderLinks(note.title);
     };
+
+    attachLinkTooltip(title, (oldText, href) => {
+      editLink(oldText, href,
+        () => note.title,
+        (v) => { note.title = v; },
+        () => { title.innerHTML = renderLinks(note.title); }
+      );
+    });
 
     // Right-side actions
     const right = document.createElement("div");
@@ -454,6 +463,14 @@ title.onblur = () => {
   title.innerHTML = renderLinks(section.title || "Untitled Section");
 };
 
+attachLinkTooltip(title, (oldText, href) => {
+  editLink(oldText, href,
+    () => section.title || "",
+    (v) => { section.title = v; },
+    () => { title.innerHTML = renderLinks(section.title || "Untitled Section"); }
+  );
+});
+
 
   const actions = document.createElement("div");
   actions.className = "note-actions";
@@ -513,9 +530,21 @@ actions.appendChild(deleteBtn);
 
   const content = document.createElement("div");
   content.className = "note-content";
-  content.contentEditable = true;
+  content.contentEditable = false;
   content.style.display = section.collapsed ? "none" : "block";
+  content.style.cursor = "text";
   content.innerHTML = renderMarkdown(section.content);
+
+  const enterEditMode = (e) => {
+    if (e && e.target.closest("a[href]")) return;
+    content.innerText = section.content;
+    content.contentEditable = true;
+    content.focus();
+    const range = document.caretRangeFromPoint?.(e?.clientX, e?.clientY);
+    if (range) { const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range); }
+  };
+
+  content.addEventListener("click", enterEditMode);
 
   content.oninput = () => {
     section.content = content.innerText;
@@ -527,7 +556,6 @@ actions.appendChild(deleteBtn);
     const html  = e.clipboardData.getData("text/html");
     const plain = e.clipboardData.getData("text/plain").trim();
 
-    // Rich paste: extract anchor tags
     if (html) {
       const tmp = document.createElement("div");
       tmp.innerHTML = html;
@@ -545,32 +573,42 @@ actions.appendChild(deleteBtn);
       }
     }
 
-    // Plain URL: open link modal
     if (/^https?:\/\/\S+$/.test(plain)) {
-      showLinkModal(plain, (text) => {
-        document.execCommand("insertText", false, text);
-        section.content = content.innerText;
-        save();
-        content.innerHTML = renderMarkdown(section.content);
-      });
+      document.execCommand("insertText", false, plain);
+      section.content = content.innerText;
+      save();
+
+      fetch(plain)
+        .then(r => r.text())
+        .then(pageHtml => {
+          const match = pageHtml.match(/<title[^>]*>([^<]+)<\/title>/i);
+          if (!match) return;
+          const title = match[1].trim().replace(/\s+/g, " ");
+          if (title && title !== plain) {
+            section.content = section.content.replace(plain, `[${title}](${plain})`);
+            save();
+          }
+        })
+        .catch(() => {});
       return;
     }
 
-    // Plain non-URL text
     document.execCommand("insertText", false, plain);
     section.content = content.innerText;
     save();
   });
 
-  content.addEventListener("click", (e) => {
-    if (e.target.tagName === "A") {
-      e.preventDefault();
-      window.open(e.target.href, "_blank", "noopener noreferrer");
-    }
+  attachLinkTooltip(content, (oldText, href) => {
+    editLink(oldText, href,
+      () => section.content,
+      (v) => { section.content = v; },
+      () => { content.innerHTML = renderMarkdown(section.content); }
+    );
   });
 
   content.onblur = () => {
-    section.content = section.content.replace(/[\n\r]+$/, "");
+    content.contentEditable = false;
+    section.content = content.innerText.replace(/[\n\r]+$/, "");
     save();
     content.innerHTML = renderMarkdown(section.content);
   };
@@ -677,8 +715,14 @@ document.getElementById("importNotes").onchange = (e) => {
 
       save();
       render();
-    } catch {
-      alert("Import failed: invalid JSON file.");
+    } catch (err) {
+      if (err.name === "QuotaExceededError" || err.name === "NS_ERROR_DOM_QUOTA_REACHED") {
+        alert("Import failed: data is too large for browser storage (~5MB limit). Try splitting into smaller files.");
+      } else if (err instanceof SyntaxError) {
+        alert("Import failed: invalid JSON file.");
+      } else {
+        alert("Import failed: " + err.message);
+      }
     } finally {
       e.target.value = "";
     }
@@ -758,35 +802,32 @@ document.addEventListener("mouseup", () => {
   if (!isNaN(leftPct)) localStorage.setItem("panelSplit", leftPct);
 });
 
-/* -------- LINK MODAL -------- */
+/* -------- LINK EDIT MODAL -------- */
 const linkModal        = document.getElementById("linkModal");
 const linkDisplayInput = document.getElementById("linkDisplayInput");
 const linkUrlInput     = document.getElementById("linkUrlInput");
+const linkModalTitle   = document.getElementById("linkModalTitle");
 
-function showLinkModal(url, onInsert) {
-  linkDisplayInput.value = "";
-  linkUrlInput.value = url;
+function editLink(oldText, oldUrl, getContent, setContent, rerender) {
+  linkModalTitle.textContent = "Edit link";
+  document.getElementById("linkOk").textContent = "Update";
+  linkDisplayInput.value = oldText;
+  linkUrlInput.value = oldUrl;
   linkModal.style.display = "flex";
   linkDisplayInput.focus();
-
-  // Try to fetch title in background and pre-fill
-  fetch(url)
-    .then(r => r.text())
-    .then(html => {
-      const match = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-      if (match && !linkDisplayInput.value) {
-        linkDisplayInput.value = match[1].trim().replace(/\s+/g, " ");
-      }
-    })
-    .catch(() => {});
 
   const finish = (confirmed) => {
     linkModal.style.display = "none";
     document.removeEventListener("keydown", onKey);
-    if (confirmed) {
-      const display = linkDisplayInput.value.trim();
-      onInsert(display && display !== url ? `[${display}](${url})` : url);
-    }
+    if (!confirmed) return;
+
+    const newText = linkDisplayInput.value.trim() || oldUrl;
+    const newUrl  = linkUrlInput.value.trim() || oldUrl;
+    const oldMd   = oldText === oldUrl ? oldUrl : `[${oldText}](${oldUrl})`;
+    const newMd   = newText === newUrl ? newUrl : `[${newText}](${newUrl})`;
+    setContent(getContent().replace(oldMd, newMd));
+    save();
+    rerender();
   };
 
   const onKey = (e) => {
@@ -799,6 +840,74 @@ function showLinkModal(url, onInsert) {
   document.getElementById("linkCancel").onclick = () => finish(false);
   linkModal.onclick = (e) => { if (e.target === linkModal) finish(false); };
 }
+
+/* -------- LINK HOVER TOOLTIP -------- */
+const linkHoverTooltip = document.getElementById("linkHoverTooltip");
+let hideTooltipTimer;
+
+linkHoverTooltip.addEventListener("mouseenter", () => clearTimeout(hideTooltipTimer));
+linkHoverTooltip.addEventListener("mouseleave", () => {
+  hideTooltipTimer = setTimeout(() => { linkHoverTooltip.style.display = "none"; }, 200);
+});
+
+function attachLinkTooltip(element, editCb) {
+  element.addEventListener("mouseover", (e) => {
+    if (element.contentEditable === "true") return;
+    const a = e.target.closest("a[href]");
+    if (!a) return;
+    clearTimeout(hideTooltipTimer);
+
+    const href = a.getAttribute("href");
+    document.getElementById("linkHoverUrl").textContent = href;
+    linkHoverTooltip.style.display = "flex";
+
+    const rect = a.getBoundingClientRect();
+    linkHoverTooltip.style.left = `${rect.left}px`;
+    linkHoverTooltip.style.top  = `${rect.bottom + 4}px`;
+
+    requestAnimationFrame(() => {
+      const tr = linkHoverTooltip.getBoundingClientRect();
+      if (tr.right > window.innerWidth)
+        linkHoverTooltip.style.left = `${window.innerWidth - tr.width - 8}px`;
+    });
+
+    document.getElementById("linkHoverOpen").onclick = (ev) => {
+      ev.stopPropagation();
+      window.open(href, "_blank", "noopener noreferrer");
+      linkHoverTooltip.style.display = "none";
+    };
+
+    document.getElementById("linkHoverEdit").onclick = (ev) => {
+      ev.stopPropagation();
+      linkHoverTooltip.style.display = "none";
+      editCb(a.innerText.trim(), href);
+    };
+  });
+
+  element.addEventListener("mouseleave", () => {
+    hideTooltipTimer = setTimeout(() => { linkHoverTooltip.style.display = "none"; }, 200);
+  });
+}
+
+/* -------- HELP -------- */
+const helpModal = document.getElementById("helpModal");
+document.getElementById("helpBtn").onclick = () => { helpModal.style.display = "flex"; };
+document.getElementById("helpClose").onclick = () => { helpModal.style.display = "none"; };
+helpModal.addEventListener("click", (e) => { if (e.target === helpModal) helpModal.style.display = "none"; });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && helpModal.style.display === "flex") helpModal.style.display = "none"; });
+
+/* -------- DETAIL TITLE LINK TOOLTIP -------- */
+const detailTitleEl = document.getElementById("detailTitle");
+attachLinkTooltip(detailTitleEl, (oldText, href) => {
+  const note = notes.find(n => n.id === currentNoteId);
+  if (!note) return;
+  editLink(oldText, href,
+    () => note.title,
+    (v) => { note.title = v; },
+    () => { detailTitleEl.innerHTML = renderLinks(note.title); }
+  );
+});
+
 const themeToggle = document.getElementById("themeToggle");
 
 function applyTheme(light) {
