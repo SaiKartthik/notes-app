@@ -536,6 +536,7 @@ actions.appendChild(deleteBtn);
   content.innerHTML = renderMarkdown(section.content);
 
   const enterEditMode = (e) => {
+    if (content.contentEditable === "true") return;
     if (e && e.target.closest("a[href]")) return;
     content.innerText = section.content;
     content.contentEditable = true;
