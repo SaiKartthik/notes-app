@@ -83,6 +83,7 @@
       width: 100%;
       transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
       overflow: hidden;
+      position: relative;
     }
 
     .panel-left.split {
@@ -367,28 +368,60 @@
     }
 
     /* ---- DIVIDER ---- */
-    #panelDivider {
+    #resizeHandle {
+      position: absolute;
+      top: 0;
+      right: 0;
       width: 4px;
-      flex-shrink: 0;
-      background: var(--border);
+      height: 100%;
       cursor: col-resize;
+      z-index: 10;
       display: none;
-      transition: background 0.15s;
-      z-index: 5;
     }
 
-    #panelDivider.active {
+    #resizeHandle.active {
       display: block;
     }
 
-    #panelDivider:hover,
-    #panelDivider.dragging {
-      background: var(--accent);
+    /* ---- SCROLL THUMB ---- */
+    #notesListContainer {
+      scrollbar-width: none;
     }
+    #notesListContainer::-webkit-scrollbar {
+      display: none;
+    }
+
+    #scrollThumb {
+      position: absolute;
+      right: 0;
+      width: 8px;
+      height: 75px;
+      border-radius: 4px;
+      background: var(--accent);
+      cursor: grab;
+      z-index: 20;
+      display: none;
+      opacity: 0.6;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    #scrollThumb.visible { display: block; }
+    #scrollThumb:hover { opacity: 1; transform: scale(1.4); }
+    #scrollThumb:active { cursor: grabbing; }
+
+    #scrollTrack {
+      position: absolute;
+      right: 3px;
+      width: 2px;
+      border-radius: 1px;
+      background: var(--border);
+      z-index: 19;
+      display: none;
+      opacity: 0.5;
+    }
+    #scrollTrack.visible { display: block; }
 
     /* ---- MOBILE ---- */
     @media (max-width: 768px) {
-      #panelDivider { display: none !important; }
       .panel-left,
       .panel-right {
         position: absolute;
@@ -457,6 +490,12 @@
       background: var(--bg-hover);
       color: var(--text);
     }
+
+    /* ---- SCROLLBAR ---- */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--divider-color); }
   </style>
 </head>
 
@@ -488,10 +527,10 @@
       <input id="addNoteInput" type="text" class="add-note-input" placeholder="New note…" />
     </div>
     <div id="notesListContainer" class="panel-content"></div>
+    <div id="scrollTrack"></div>
+    <div id="scrollThumb"></div>
+    <div id="resizeHandle"></div>
   </div>
-
-  <!-- DIVIDER -->
-  <div id="panelDivider"></div>
 
   <!-- RIGHT PANEL: note detail -->
   <div id="panelRight" class="panel-right">

@@ -6,7 +6,8 @@ const listContainer   = document.getElementById("notesListContainer");
 const detailContainer = document.getElementById("notesDetailContainer");
 const panelLeft       = document.getElementById("panelLeft");
 const panelRight      = document.getElementById("panelRight");
-const panelDivider    = document.getElementById("panelDivider");
+const resizeHandle    = document.getElementById("resizeHandle");
+const scrollThumb     = document.getElementById("scrollThumb");
 const toggleAllIcon   = document.getElementById("toggleAllIcon");
 const toggleAllText   = document.getElementById("toggleAllText");
 
@@ -38,7 +39,7 @@ function formatDate(ts) {
 
 function renderLinks(text = "") {
   return text
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(/\[(.*?)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
     .replace(/(?<![("'])(https?:\/\/[^\s<>"]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
 }
 
@@ -50,7 +51,7 @@ function renderMarkdown(text = "") {
     .replace(/^# (.*$)/gim, "<h1>$1</h1>")
     .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>")
     .replace(/\*(.*?)\*/g, "<i>$1</i>")
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(/\[(.*?)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
     .replace(/(?<![("'])(https?:\/\/[^\s<>"]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
     .replace(/\n/g, "<br>");
 }
@@ -76,7 +77,7 @@ function render() {
     renderNoteView(currentNoteId);
     panelLeft.classList.add("split");
     panelRight.classList.add("open");
-    panelDivider.classList.add("active");
+    resizeHandle.classList.add("active");
     const savedSplit = parseFloat(localStorage.getItem("panelSplit"));
     if (!isNaN(savedSplit)) {
       panelLeft.style.width = `${savedSplit}%`;
@@ -85,12 +86,13 @@ function render() {
   } else {
     panelLeft.classList.remove("split");
     panelRight.classList.remove("open");
-    panelDivider.classList.remove("active");
+    resizeHandle.classList.remove("active");
     panelLeft.style.width = "";
     panelRight.style.width = "";
     detailContainer.innerHTML = "";
     document.getElementById("detailTitle").innerHTML = "";
   }
+  requestAnimationFrame(updateScrollThumb);
 }
 
 /* -------- ROOT VIEW (FOLDERS) -------- */
@@ -354,20 +356,21 @@ function renderSection(note, section) {
 sec.className = "note";
 sec.dataset.sectionId = section.id;
 
-  sec.draggable = true;
   sec.dataset.id = section.id;
 
   const header = document.createElement("div");
   header.className = "d-flex justify-content-between align-items-center";
-  sec.addEventListener("dragstart", () => {
-  sec.classList.add("opacity-50");
-});
+  header.draggable = true;
+  header.style.cursor = "grab";
+  header.addEventListener("dragstart", () => {
+    sec.classList.add("opacity-50");
+  });
   
-sec.addEventListener("dragend", () => {
-  sec.classList.remove("opacity-50");
-  save();
-  render();
-});
+  header.addEventListener("dragend", () => {
+    sec.classList.remove("opacity-50");
+    save();
+    render();
+  });
 
 sec.addEventListener("dragover", (e) => {
   e.preventDefault();
@@ -538,11 +541,14 @@ actions.appendChild(deleteBtn);
   const enterEditMode = (e) => {
     if (content.contentEditable === "true") return;
     if (e && e.target.closest("a[href]")) return;
+    const scrollTop = detailContainer.scrollTop;
     content.innerText = section.content;
     content.contentEditable = true;
-    content.focus();
+    content.focus({ preventScroll: true });
     const range = document.caretRangeFromPoint?.(e?.clientX, e?.clientY);
     if (range) { const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range); }
+    detailContainer.scrollTop = scrollTop;
+    requestAnimationFrame(() => { detailContainer.scrollTop = scrollTop; });
   };
 
   content.addEventListener("click", enterEditMode);
@@ -769,12 +775,66 @@ function updateToggleAllUI(collapsed) {
   toggleAllIcon.style.transform = collapsed ? "rotate(180deg)" : "rotate(0deg)";
 }
 
+/* -------- SCROLL THUMB -------- */
+const scrollTrack = document.getElementById("scrollTrack");
+
+function updateScrollThumb() {
+  const el = listContainer;
+  if (!el || el.scrollHeight <= el.clientHeight) {
+    scrollThumb.classList.remove("visible");
+    scrollTrack.classList.remove("visible");
+    return;
+  }
+  const thumbSize = 75;
+  const trackTop = el.offsetTop;
+  const trackHeight = el.clientHeight;
+
+  scrollTrack.classList.add("visible");
+  scrollTrack.style.top = trackTop + "px";
+  scrollTrack.style.height = trackHeight + "px";
+
+  scrollThumb.classList.add("visible");
+  const ratio = el.scrollTop / (el.scrollHeight - el.clientHeight);
+  scrollThumb.style.top = (trackTop + ratio * (trackHeight - thumbSize)) + "px";
+}
+
+listContainer.addEventListener("scroll", updateScrollThumb);
+
+let isScrollDragging = false;
+let scrollDragStartY = 0;
+let scrollDragStartTop = 0;
+
+scrollThumb.addEventListener("mousedown", (e) => {
+  isScrollDragging = true;
+  scrollDragStartY = e.clientY;
+  scrollDragStartTop = listContainer.scrollTop;
+  document.body.style.cursor = "grabbing";
+  document.body.style.userSelect = "none";
+  e.stopPropagation();
+  e.preventDefault();
+});
+
+document.addEventListener("mousemove", (e) => {
+  if (!isScrollDragging) return;
+  const el = listContainer;
+  const thumbSize = 75;
+  const dy = e.clientY - scrollDragStartY;
+  const scrollRange = el.scrollHeight - el.clientHeight;
+  el.scrollTop = scrollDragStartTop + dy * scrollRange / (el.clientHeight - thumbSize);
+});
+
+document.addEventListener("mouseup", () => {
+  if (!isScrollDragging) return;
+  isScrollDragging = false;
+  document.body.style.cursor = "";
+  document.body.style.userSelect = "";
+});
+
 /* -------- PANEL RESIZE -------- */
 let isDragging = false;
 
-panelDivider.addEventListener("mousedown", (e) => {
+resizeHandle.addEventListener("mousedown", (e) => {
   isDragging = true;
-  panelDivider.classList.add("dragging");
   document.body.style.cursor = "col-resize";
   document.body.style.userSelect = "none";
   e.preventDefault();
@@ -794,7 +854,6 @@ document.addEventListener("mousemove", (e) => {
 document.addEventListener("mouseup", () => {
   if (!isDragging) return;
   isDragging = false;
-  panelDivider.classList.remove("dragging");
   document.body.style.cursor = "";
   document.body.style.userSelect = "";
   panelLeft.style.transition = "";
