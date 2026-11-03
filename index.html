@@ -24,482 +24,12 @@
     href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css"
   />
 
-  <style>
-    *, *::before, *::after { box-sizing: border-box; }
-
-    /* ---- THEME VARIABLES ---- */
-    :root {
-      --bg:               #0e0d12;
-      --bg-card:          #1a1a20;
-      --bg-hover:         #131317;
-      --bg-active:        #1e1e2e;
-      --bg-code:          #131317;
-      --border:           #252525;
-      --text:             #e8e8e8;
-      --text-secondary:   #ccc;
-      --text-muted:       #666;
-      --text-placeholder: #555;
-      --input-border:     #333;
-      --input-focus:      #555;
-      --accent:           #6ea8fe;
-      --divider-color:    #444;
-    }
-
-    body.light-theme {
-      --bg:               #f5f5f7;
-      --bg-card:          #ffffff;
-      --bg-hover:         #ebebeb;
-      --bg-active:        #e8f0fe;
-      --bg-code:          #f0f0f0;
-      --border:           #e0e0e0;
-      --text:             #1a1a20;
-      --text-secondary:   #555;
-      --text-muted:       #888;
-      --text-placeholder: #aaa;
-      --input-border:     #ddd;
-      --input-focus:      #aaa;
-      --accent:           #1a73e8;
-      --divider-color:    #aaa;
-    }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      margin: 0;
-      overflow: hidden;
-    }
-
-    /* ---- LAYOUT ---- */
-    .app-wrapper {
-      display: flex;
-      height: 100vh;
-      overflow: hidden;
-      position: relative;
-    }
-
-    .panel-left {
-      display: flex;
-      flex-direction: column;
-      width: 100%;
-      transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-      overflow: hidden;
-      position: relative;
-    }
-
-    .panel-left.split {
-      width: 50%;
-      min-width: 200px;
-      border-right: 1px solid var(--border);
-    }
-
-    .panel-right {
-      display: flex;
-      flex-direction: column;
-      width: 0;
-      overflow: hidden;
-      transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .panel-right.open {
-      width: 50%;
-    }
-
-    .panel-header {
-      background: var(--bg);
-      border-bottom: 1px solid var(--border);
-      padding: 8px 12px;
-      flex-shrink: 0;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .panel-content {
-      overflow-y: auto;
-      flex: 1;
-      padding: 8px;
-    }
-
-    .add-note-bar {
-      padding: 6px 8px;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-
-    .add-note-input {
-      width: 100%;
-      background: var(--bg-card);
-      border: 1px solid var(--input-border);
-      border-radius: 4px;
-      color: var(--text);
-      padding: 5px 10px;
-      font-size: 0.78rem;
-      outline: none;
-    }
-
-    .add-note-input::placeholder {
-      color: var(--text-placeholder);
-    }
-
-    .add-note-input:focus {
-      border-color: var(--input-focus);
-    }
-
-    /* ---- NOTES ---- */
-    .note {
-      background: var(--bg-card);
-      border: none;
-      border-radius: 6px;
-      padding: 5px 10px;
-      margin-bottom: 5px;
-    }
-
-    .note-active {
-      background: var(--bg-active) !important;
-      border-left: 2px solid var(--accent);
-    }
-
-    .note:hover {
-      background: var(--bg-hover);
-    }
-
-    .note-title {
-      font-weight: normal;
-      font-size: 0.78rem;
-      outline: none;
-      word-break: break-word;
-      overflow-wrap: break-word;
-      min-width: 0;
-    }
-
-    .note-content {
-      margin-top: 8px;
-      outline: none;
-      white-space: pre-wrap;
-      font-size: 0.78rem;
-      color: var(--text-secondary);
-      cursor: text;
-      min-height: 36px;
-    }
-
-    .note-content:empty::before {
-      content: "Click to write...";
-      color: var(--text-placeholder);
-      pointer-events: none;
-      display: block;
-    }
-
-    .note-content a, .note-title a {
-      color: var(--accent);
-      text-decoration: underline;
-      word-break: break-all;
-    }
-
-    .note-content pre {
-      background: var(--bg-code);
-      padding: 10px;
-      border-radius: 6px;
-    }
-
-    .note-content code {
-      background: var(--bg-code);
-      padding: 2px 4px;
-      border-radius: 4px;
-    }
-
-    .note-actions {
-      display: flex;
-      gap: 4px;
-      align-items: center;
-    }
-
-    .note-actions button {
-      min-width: 28px;
-      padding: 2px 5px;
-      font-size: 0.7rem;
-    }
-
-    .note-actions button i {
-      font-size: 0.75rem;
-    }
-
-    .note .icon-btn {
-      min-width: 28px;
-      padding: 2px 5px;
-    }
-
-    .note .icon-btn i {
-      font-size: 0.75rem;
-    }
-
-    .icon-btn i {
-      font-size: 1.1rem;
-    }
-
-    #toggleAllIcon {
-      transition: transform 0.2s ease;
-    }
-
-    .note-completed {
-      opacity: 0.75;
-    }
-
-    .check-btn {
-      font-size: 1.35rem;
-      line-height: 1;
-      color: var(--text-placeholder);
-      transition: color 0.15s;
-      padding: 0;
-      border: none;
-      background: transparent;
-    }
-
-    .check-btn:hover { color: #e53935 !important; }
-    .check-btn.checked { color: #e53935; }
-
-    .status-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #e53935;
-      flex-shrink: 0;
-    }
-
-    .note-count {
-      font-size: 0.65rem;
-      color: #4caf50;
-      flex-shrink: 0;
-    }
-
-    .note-date {
-      font-size: 0.65rem;
-      color: #f5c542;
-      flex-shrink: 0;
-    }
-
-    .completed-divider {
-      border-top: 1px solid var(--border);
-      padding-top: 10px;
-      margin: 16px 0 12px;
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: var(--divider-color);
-      text-align: center;
-    }
-
-    /* ---- ANIMATIONS ---- */
-    @keyframes noteEnter {
-      from { opacity: 0; transform: translateY(10px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    @keyframes noteExit {
-      from { opacity: 1; transform: translateY(0); }
-      to   { opacity: 0; transform: translateY(-10px); }
-    }
-
-    .note-enter { animation: noteEnter 0.18s ease forwards; }
-    .note-exit  { animation: noteExit  0.18s ease forwards; }
-
-    #detailTitle {
-      font-size: 0.8rem;
-    }
-
-    #detailTitle a {
-      color: inherit;
-      text-decoration: underline;
-    }
-
-    /* ---- LIGHT THEME BUTTON OVERRIDES ---- */
-    body.light-theme .btn-outline-light {
-      --bs-btn-color: #333;
-      --bs-btn-border-color: #bbb;
-      --bs-btn-hover-bg: #e0e0e0;
-      --bs-btn-hover-color: #111;
-      --bs-btn-hover-border-color: #999;
-      --bs-btn-active-bg: #d0d0d0;
-      --bs-btn-active-color: #111;
-    }
-
-    body.light-theme .btn-light {
-      --bs-btn-bg: #333;
-      --bs-btn-color: #fff;
-      --bs-btn-border-color: #333;
-      --bs-btn-hover-bg: #555;
-      --bs-btn-hover-color: #fff;
-      --bs-btn-hover-border-color: #555;
-    }
-
-    /* ---- TOOLTIPS ---- */
-    [data-tooltip] {
-      position: relative;
-    }
-
-    [data-tooltip]::after {
-      content: attr(data-tooltip);
-      position: absolute;
-      bottom: unset;
-      top: calc(100% + 6px);
-      left: 50%;
-      transform: translateX(-50%);
-      background: #222;
-      color: #e8e8e8;
-      padding: 3px 8px;
-      border-radius: 4px;
-      font-size: 0.7rem;
-      white-space: nowrap;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.15s;
-      z-index: 100;
-      border: 1px solid #444;
-    }
-
-    [data-tooltip]:hover::after {
-      opacity: 1;
-    }
-
-    #themeToggle[data-tooltip]::after {
-      left: unset;
-      right: 0;
-      transform: none;
-    }
-
-    /* ---- DIVIDER ---- */
-    #resizeHandle {
-      position: absolute;
-      top: 0;
-      right: 0;
-      width: 4px;
-      height: 100%;
-      cursor: col-resize;
-      z-index: 10;
-      display: none;
-    }
-
-    #resizeHandle.active {
-      display: block;
-    }
-
-    /* ---- SCROLL THUMB ---- */
-    #notesListContainer {
-      scrollbar-width: none;
-    }
-    #notesListContainer::-webkit-scrollbar {
-      display: none;
-    }
-
-    #scrollThumb {
-      position: absolute;
-      right: 0;
-      width: 8px;
-      height: 75px;
-      border-radius: 4px;
-      background: var(--accent);
-      cursor: grab;
-      z-index: 20;
-      display: none;
-      opacity: 0.6;
-      transition: opacity 0.15s, transform 0.1s;
-    }
-    #scrollThumb.visible { display: block; }
-    #scrollThumb:hover { opacity: 1; transform: scale(1.4); }
-    #scrollThumb:active { cursor: grabbing; }
-
-    #scrollTrack {
-      position: absolute;
-      right: 3px;
-      width: 2px;
-      border-radius: 1px;
-      background: var(--border);
-      z-index: 19;
-      display: none;
-      opacity: 0.5;
-    }
-    #scrollTrack.visible { display: block; }
-
-    /* ---- MOBILE ---- */
-    @media (max-width: 768px) {
-      .panel-left,
-      .panel-right {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100% !important;
-        height: 100%;
-        min-width: unset !important;
-        border-right: none !important;
-        transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-      }
-
-      .panel-left {
-        transform: translateX(0);
-        z-index: 1;
-      }
-
-      .panel-left.split {
-        transform: translateX(-100%);
-      }
-
-      .panel-right {
-        transform: translateX(100%);
-        z-index: 2;
-      }
-
-      .panel-right.open {
-        transform: translateX(0);
-      }
-    }
-    #linkHoverTooltip {
-      display: none;
-      position: fixed;
-      z-index: 1500;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 3px 6px;
-      font-size: 0.7rem;
-      align-items: center;
-      gap: 4px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-      max-width: 320px;
-    }
-
-    #linkHoverTooltip span {
-      color: var(--text-secondary);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      max-width: 180px;
-    }
-
-    #linkHoverTooltip button {
-      background: transparent;
-      border: none;
-      color: var(--text-secondary);
-      cursor: pointer;
-      padding: 2px 4px;
-      border-radius: 3px;
-      font-size: 0.75rem;
-      line-height: 1;
-    }
-
-    #linkHoverTooltip button:hover {
-      background: var(--bg-hover);
-      color: var(--text);
-    }
-
-    /* ---- SCROLLBAR ---- */
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--divider-color); }
-  </style>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 
 <body>
+
+<div id="announcements" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
 
 <div class="app-wrapper">
 
@@ -508,47 +38,55 @@
     <div class="panel-header">
       <h5 class="m-0">🗂 Notes</h5>
       <div class="d-flex gap-2 flex-wrap">
-        <button id="helpBtn" class="btn btn-outline-light btn-sm icon-btn" data-tooltip="Help">
+        <button id="searchBtn" class="btn btn-outline-light btn-sm icon-btn" data-tooltip="Search" aria-label="Search notes" aria-controls="searchBar" aria-expanded="false">
+          <i class="bi bi-search"></i>
+        </button>
+        <button id="helpBtn" class="btn btn-outline-light btn-sm icon-btn" data-tooltip="Help" aria-label="Open help">
           <i class="bi bi-question-circle"></i>
         </button>
-        <button id="exportNotes" class="btn btn-outline-light btn-sm icon-btn" data-tooltip="Export">
+        <button id="exportNotes" class="btn btn-outline-light btn-sm icon-btn" data-tooltip="Export" aria-label="Export notes">
           <i class="bi bi-upload"></i>
         </button>
-        <button id="importBtn" class="btn btn-outline-light btn-sm icon-btn" data-tooltip="Import">
+        <button id="importBtn" class="btn btn-outline-light btn-sm icon-btn" data-tooltip="Import" aria-label="Import notes">
           <i class="bi bi-download"></i>
         </button>
-        <input id="importNotes" type="file" hidden />
-        <button id="themeToggle" class="btn btn-outline-light btn-sm icon-btn" data-tooltip="Toggle dark mode">
+        <input id="importNotes" type="file" accept="application/json,.json" hidden />
+        <button id="themeToggle" class="btn btn-outline-light btn-sm icon-btn" data-tooltip="Toggle dark mode" aria-label="Switch to light theme">
           <i class="bi bi-sun"></i>
         </button>
       </div>
     </div>
+    <div id="searchBar" class="search-bar" hidden>
+      <input id="searchNotes" type="search" class="add-note-input" placeholder="Search notes and sections…" aria-label="Search notes and sections" />
+    </div>
     <div class="add-note-bar">
-      <input id="addNoteInput" type="text" class="add-note-input" placeholder="New note…" />
+      <input id="addNoteInput" type="text" class="add-note-input" placeholder="New note…" aria-label="New note title" />
+      <button id="addNoteBtn" type="button" class="btn btn-outline-light btn-sm icon-btn add-note-button" aria-label="Create note" title="Create note">
+        <span class="add-button-label">Add</span>
+      </button>
     </div>
     <div id="notesListContainer" class="panel-content"></div>
     <div id="scrollTrack"></div>
     <div id="scrollThumb"></div>
-    <div id="resizeHandle"></div>
+    <div id="resizeHandle" aria-hidden="true"></div>
   </div>
 
   <!-- RIGHT PANEL: note detail -->
   <div id="panelRight" class="panel-right">
     <div class="panel-header">
       <div class="d-flex align-items-center gap-2" style="min-width:0; overflow:hidden;">
-        <button id="closeDetail" class="btn btn-outline-light btn-sm icon-btn flex-shrink-0" title="Close">
+        <button id="closeDetail" class="btn btn-outline-light btn-sm icon-btn flex-shrink-0" title="Close" aria-label="Close note details">
           <i class="bi bi-x-lg"></i>
         </button>
         <span id="detailTitle" class="m-0 fw-semibold text-truncate"></span>
       </div>
       <div class="d-flex gap-2 flex-shrink-0">
-        <button id="toggleAll" class="btn btn-outline-light btn-sm icon-btn" title="Collapse all">
+        <button id="toggleAll" class="btn btn-outline-light btn-sm icon-btn" title="Collapse all" aria-label="Collapse all sections">
           <i id="toggleAllIcon" class="bi bi-arrows-collapse"></i>
           <span id="toggleAllText" class="d-none d-sm-inline ms-1">Collapse</span>
         </button>
-        <button id="addSectionBtn" class="btn btn-light btn-sm fw-semibold icon-btn">
-          <i class="bi bi-plus-lg"></i>
-          <span class="d-none d-sm-inline ms-1">Add</span>
+        <button id="addSectionBtn" class="btn btn-outline-light btn-sm icon-btn" aria-label="Add section" title="Add section">
+          <span class="add-button-label">Add</span>
         </button>
       </div>
     </div>
@@ -559,10 +97,10 @@
 
 <!-- Help modal -->
 <div id="helpModal" style="display:none; position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
-  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:20px; width:420px; max-width:92vw; max-height:85vh; overflow-y:auto; box-shadow:0 8px 32px rgba(0,0,0,0.4);">
+  <div id="helpDialog" role="dialog" aria-modal="true" aria-labelledby="helpTitle" tabindex="-1" style="background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:20px; width:420px; max-width:92vw; max-height:85vh; overflow-y:auto; box-shadow:0 8px 32px rgba(0,0,0,0.4);">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-      <span style="font-size:0.88rem; font-weight:600; color:var(--text);">📖 How to use Notes</span>
-      <button id="helpClose" style="background:transparent; border:none; color:var(--text-secondary); font-size:1rem; cursor:pointer; padding:0 4px;">✕</button>
+      <span id="helpTitle" style="font-size:0.88rem; font-weight:600; color:var(--text);">📖 How to use Notes</span>
+      <button id="helpClose" aria-label="Close help" style="background:transparent; border:none; color:var(--text-secondary); font-size:1rem; cursor:pointer; padding:0 4px;">✕</button>
     </div>
 
     <div style="font-size:0.72rem; color:var(--text-secondary); line-height:1.7;">
@@ -572,9 +110,10 @@
         <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Single click</td><td>Open note in right panel</td></tr>
         <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Double click</td><td>Rename note title</td></tr>
         <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Drag</td><td>Reorder notes</td></tr>
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Alt + ↑ / ↓</td><td>Move the focused note</td></tr>
         <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Checkmark</td><td>Mark complete / incomplete</td></tr>
         <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">🗑 (click twice)</td><td>Delete note</td></tr>
-        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Type + Enter</td><td>Create new note</td></tr>
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Type + Enter or +</td><td>Create new note</td></tr>
       </table>
 
       <div style="color:var(--text); font-weight:600; margin-bottom:4px;">📄 Note Detail (right panel)</div>
@@ -582,6 +121,7 @@
         <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Click content</td><td>Edit section content</td></tr>
         <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Double click title</td><td>Rename section</td></tr>
         <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Drag section</td><td>Reorder sections</td></tr>
+        <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Alt + ↑ / ↓</td><td>Move the focused section header</td></tr>
         <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">∧ / ∨ button</td><td>Collapse / expand section</td></tr>
         <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Add button</td><td>Add new section</td></tr>
         <tr><td style="padding:2px 8px 2px 0; color:var(--accent); white-space:nowrap;">Collapse all</td><td>Toggle all sections at once</td></tr>
@@ -618,13 +158,13 @@
 <!-- Link hover tooltip -->
 <div id="linkHoverTooltip">
   <span id="linkHoverUrl"></span>
-  <button id="linkHoverOpen" title="Open"><i class="bi bi-box-arrow-up-right"></i></button>
-  <button id="linkHoverEdit" title="Edit"><i class="bi bi-pencil"></i></button>
+  <button id="linkHoverOpen" title="Open" aria-label="Open link"><i class="bi bi-box-arrow-up-right"></i></button>
+  <button id="linkHoverEdit" title="Edit" aria-label="Edit link"><i class="bi bi-pencil"></i></button>
 </div>
 
 <!-- Link paste modal -->
 <div id="linkModal" style="display:none; position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,0.4); align-items:center; justify-content:center;">
-  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:16px; width:340px; max-width:90vw; box-shadow:0 8px 24px rgba(0,0,0,0.4);">
+  <div id="linkDialog" role="dialog" aria-modal="true" aria-labelledby="linkModalTitle" tabindex="-1" style="background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:16px; width:340px; max-width:90vw; box-shadow:0 8px 24px rgba(0,0,0,0.4);">
     <div id="linkModalTitle" style="font-size:0.78rem; color:var(--text); margin-bottom:8px; font-weight:600;">Edit link</div>
     <input id="linkDisplayInput" type="text" placeholder="Display text"
       style="width:100%; background:var(--bg); border:1px solid var(--border); border-radius:4px; color:var(--text); padding:5px 8px; font-size:0.78rem; outline:none; margin-bottom:6px;" />
@@ -660,7 +200,7 @@
   </div>
 </div>
 
-<script src="app.js"></script>
+<script type="module" src="app.js"></script>
 <script>
   let newWorker;
 

@@ -1,5 +1,23 @@
-let notes = JSON.parse(localStorage.getItem("notes")) || [];
-let currentNoteId = null;
+import { MAX_PASTE_LENGTH, getImportData, isValidId, moveItem, uid } from "./js/data.js";
+import { normalizeHttpUrl, renderLinks, renderMarkdown } from "./js/formatting.js";
+import {
+  isQuotaError,
+  loadNotes,
+  loadStoredString,
+  persistNotes,
+  persistStoredString,
+  removeStoredValue,
+  replaceNotesFromImport
+} from "./js/storage.js";
+
+const CONTENT_SAVE_DELAY_MS = 500;
+const CURRENT_NOTE_STORAGE_KEY = "notes-current-note-id";
+
+let storageErrorShown = false;
+let contentSaveTimer = null;
+let notes = loadNotes();
+let currentNoteId = loadCurrentNoteId();
+let noteSearchQuery = "";
 
 let container;
 const listContainer   = document.getElementById("notesListContainer");
@@ -11,25 +29,123 @@ const scrollThumb     = document.getElementById("scrollThumb");
 const toggleAllIcon   = document.getElementById("toggleAllIcon");
 const toggleAllText   = document.getElementById("toggleAllText");
 
-function moveItem(arr, from, to) {
-  if (from === to) return;
-  const item = arr.splice(from, 1)[0];
-  arr.splice(to, 0, item);
+function findNoteById(id) {
+  if (!isValidId(id)) return null;
+  const note = notes.find((candidate) => candidate?.id === id);
+  return note && Array.isArray(note.sections) ? note : null;
+}
+
+function loadCurrentNoteId() {
+  const savedId = loadStoredString(CURRENT_NOTE_STORAGE_KEY);
+  if (savedId && findNoteById(savedId)) return savedId;
+  if (savedId) removeStoredValue(CURRENT_NOTE_STORAGE_KEY);
+  return null;
+}
+
+function setCurrentNoteId(noteId) {
+  currentNoteId = noteId;
+  if (noteId === null) {
+    removeStoredValue(CURRENT_NOTE_STORAGE_KEY);
+  } else {
+    persistStoredString(CURRENT_NOTE_STORAGE_KEY, noteId);
+  }
+}
+
+function announce(message) {
+  document.getElementById("announcements").textContent = message;
+}
+
+function focusByDataAttribute(selector, attribute, value) {
+  requestAnimationFrame(() => {
+    const element = Array.from(document.querySelectorAll(selector))
+      .find((candidate) => candidate.dataset[attribute] === value);
+    element?.focus();
+  });
+}
+
+function moveNoteWithKeyboard(note, direction) {
+  if (!note || note.completed) {
+    announce("Completed notes are sorted automatically and cannot be reordered.");
+    return;
+  }
+  const group = notes.filter((candidate) => candidate.completed === note.completed);
+  const groupIndex = group.indexOf(note);
+  const target = group[groupIndex + direction];
+  if (!target) {
+    announce(`Note is already at the ${direction < 0 ? "top" : "bottom"} of its group.`);
+    return;
+  }
+  moveItem(notes, notes.indexOf(note), notes.indexOf(target));
+  save();
+  render();
+  focusByDataAttribute("#notesListContainer .note[data-id]", "id", note.id);
+  announce(`Moved note ${direction < 0 ? "up" : "down"}.`);
+}
+
+function moveSectionWithKeyboard(note, section, direction) {
+  if (!note || !Array.isArray(note.sections) || !section || !isValidId(section.id)) return;
+  const group = note.sections.filter((candidate) => candidate.completed === section.completed);
+  const groupIndex = group.indexOf(section);
+  const target = group[groupIndex + direction];
+  if (!target) {
+    announce(`Section is already at the ${direction < 0 ? "top" : "bottom"} of its group.`);
+    return;
+  }
+  moveItem(note.sections, note.sections.indexOf(section), note.sections.indexOf(target));
+  save();
+  render();
+  focusByDataAttribute(".section-drag-handle", "sectionId", section.id);
+  announce(`Moved section ${direction < 0 ? "up" : "down"}.`);
 }
 
 function setToggleAllVisibility(visible, disabled = false) {
   const btn = document.getElementById("toggleAll");
-  btn.disabled = disabled;
-  btn.style.opacity = disabled ? "0.4" : "1";
+  if (!btn) return;
+  btn.hidden = !visible;
+  btn.disabled = !visible || disabled;
+  btn.style.opacity = btn.disabled ? "0.4" : "1";
+}
+
+function reportStorageError(error) {
+  console.error("Unable to save notes:", error);
+  if (storageErrorShown) return;
+  storageErrorShown = true;
+  const reason = isQuotaError(error)
+    ? "Browser storage is full."
+    : "Browser storage is unavailable.";
+  alert(`${reason} Your changes are still visible, but they will not persist until storage is available.`);
+}
+
+function reportImportStorageError(error) {
+  console.error("Unable to import notes:", error);
+  const reason = isQuotaError(error)
+    ? "Browser storage is full."
+    : "Browser storage is unavailable.";
+  alert(`Import failed: ${reason} Your current notes were not replaced.`);
 }
 
 function save() {
-  localStorage.setItem("notes", JSON.stringify(notes));
+  const saved = persistNotes(notes, { onError: reportStorageError });
+  if (saved) storageErrorShown = false;
+  return saved;
 }
 
-function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+function scheduleContentSave() {
+  if (contentSaveTimer !== null) clearTimeout(contentSaveTimer);
+  contentSaveTimer = setTimeout(() => {
+    contentSaveTimer = null;
+    save();
+  }, CONTENT_SAVE_DELAY_MS);
 }
+
+function flushContentSave() {
+  if (contentSaveTimer === null) return;
+  clearTimeout(contentSaveTimer);
+  contentSaveTimer = null;
+  save();
+}
+
+window.addEventListener("pagehide", flushContentSave);
 
 function formatDate(ts) {
   if (!ts) return "";
@@ -37,28 +153,15 @@ function formatDate(ts) {
   return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function renderLinks(text = "") {
-  return text
-    .replace(/\[(.*?)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
-    .replace(/(?<![("'])(https?:\/\/[^\s<>"]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
-}
-
-function renderMarkdown(text = "") {
-  return text
-    .replace(/```([\s\S]*?)```/g, "<pre><code>$1</code></pre>")
-    .replace(/^### (.*$)/gim, "<h3>$1</h3>")
-    .replace(/^## (.*$)/gim, "<h2>$1</h2>")
-    .replace(/^# (.*$)/gim, "<h1>$1</h1>")
-    .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>")
-    .replace(/\*(.*?)\*/g, "<i>$1</i>")
-    .replace(/\[(.*?)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
-    .replace(/(?<![("'])(https?:\/\/[^\s<>"]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
-    .replace(/\n/g, "<br>");
-}
 
 /* ---------------- RENDER ---------------- */
 
 function render() {
+  const currentNote = findNoteById(currentNoteId);
+  if (currentNoteId !== null && !currentNote) {
+    setCurrentNoteId(null);
+  }
+
   container = listContainer;
   container.innerHTML = "";
   renderRoot();
@@ -72,7 +175,7 @@ function render() {
     detailContainer.classList.add("note-enter");
     setTimeout(() => detailContainer.classList.remove("note-enter"), 180);
     document.getElementById("detailTitle").innerHTML = renderLinks(
-      notes.find(n => n.id === currentNoteId)?.title || ""
+      currentNote.title
     );
     renderNoteView(currentNoteId);
     panelLeft.classList.add("split");
@@ -80,8 +183,7 @@ function render() {
     resizeHandle.classList.add("active");
     const savedSplit = parseFloat(localStorage.getItem("panelSplit"));
     if (!isNaN(savedSplit)) {
-      panelLeft.style.width = `${savedSplit}%`;
-      panelRight.style.width = `${100 - savedSplit}%`;
+      setPanelSplit(savedSplit);
     }
   } else {
     panelLeft.classList.remove("split");
@@ -98,13 +200,25 @@ function render() {
 /* -------- ROOT VIEW (FOLDERS) -------- */
 
 function renderRoot() {
-  if (notes.length === 0) {
+  const query = noteSearchQuery.trim().toLocaleLowerCase();
+  const visibleNotes = query
+    ? notes.filter((note) => {
+      const sections = Array.isArray(note.sections) ? note.sections : [];
+      const text = [note.title, ...sections.flatMap((section) => [section?.title, section?.content])]
+        .filter((value) => typeof value === "string")
+        .join(" ")
+        .toLocaleLowerCase();
+      return text.includes(query);
+    })
+    : notes;
+
+  if (visibleNotes.length === 0) {
     const empty = document.createElement("div");
     empty.className = "text-center mt-5";
     empty.style.color = "#aaa";
     empty.innerHTML = `
-      <div style="font-size:1.2rem">📂 No notes yet</div>
-      <div class="small mt-1">Click + to create your first note</div>
+      <div style="font-size:1.2rem">${query ? "🔎 No matching notes" : "📂 No notes yet"}</div>
+      <div class="small mt-1">${query ? "Try a different search term" : "Click + to create your first note"}</div>
     `;
     container.appendChild(empty);
     setToggleAllVisibility(false);
@@ -113,8 +227,8 @@ function renderRoot() {
 
   container.innerHTML = "";
 
-  const active = notes.filter(n => !n.completed);
-  const done = notes.filter(n => n.completed)
+  const active = visibleNotes.filter(n => !n.completed);
+  const done = visibleNotes.filter(n => n.completed)
     .sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
   const ordered = [...active, ...done];
   let dividerAdded = false;
@@ -132,7 +246,10 @@ function renderRoot() {
     card.className = "note d-flex justify-content-between align-items-center gap-2";
     if (note.completed) card.classList.add("note-completed");
     card.style.cursor = "pointer";
-    card.draggable = true;
+    card.draggable = !note.completed && !query;
+    card.tabIndex = 0;
+    card.setAttribute("aria-label", `${note.title}. Press Enter to open. Press Alt and Up or Down Arrow to reorder.`);
+    card.setAttribute("aria-keyshortcuts", "Enter Alt+ArrowUp Alt+ArrowDown");
     card.dataset.id = note.id;
     if (note.id === currentNoteId) card.classList.add("note-active");
 
@@ -148,15 +265,30 @@ function renderRoot() {
           detailContainer.classList.add("note-exit");
           setTimeout(() => {
             detailContainer.classList.remove("note-exit");
-            currentNoteId = note.id;
+            setCurrentNoteId(note.id);
             render();
           }, 180);
         } else {
-          currentNoteId = note.id;
+          setCurrentNoteId(note.id);
           render();
         }
       }, 250);
     };
+
+    card.addEventListener("keydown", (e) => {
+      if (e.target !== card) return;
+      if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+        e.preventDefault();
+        if (query) {
+          announce("Clear the search before reordering notes.");
+          return;
+        }
+        moveNoteWithKeyboard(note, e.key === "ArrowUp" ? -1 : 1);
+      } else if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        card.click();
+      }
+    });
 
     card.addEventListener("dragstart", () => {
       card.classList.add("opacity-50");
@@ -172,10 +304,11 @@ function renderRoot() {
       e.preventDefault();
       const dragging = document.querySelector(".opacity-50");
       if (!dragging || dragging === card) return;
-      const from = notes.findIndex(n => n.id === dragging.dataset.id);
-      const to = notes.findIndex(n => n.id === card.dataset.id);
-      if (from === to) return;
-      moveItem(notes, from, to);
+      const draggedNote = findNoteById(dragging.dataset.id);
+      if (!draggedNote || draggedNote.completed || note.completed) return;
+      const from = notes.indexOf(draggedNote);
+      const to = notes.indexOf(note);
+      if (!moveItem(notes, from, to)) return;
       card.parentNode.insertBefore(dragging, from < to ? card.nextSibling : card);
     });
 
@@ -183,6 +316,7 @@ function renderRoot() {
     const checkBtn = document.createElement("button");
     checkBtn.className = "check-btn flex-shrink-0" + (note.completed ? " checked" : "");
     checkBtn.title = note.completed ? "Mark incomplete" : "Mark complete";
+    checkBtn.setAttribute("aria-label", note.completed ? "Mark note incomplete" : "Mark note complete");
     checkBtn.innerHTML = note.completed
       ? `<i class="bi bi-check-circle-fill"></i>`
       : `<i class="bi bi-circle"></i>`;
@@ -265,6 +399,7 @@ function renderRoot() {
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "btn btn-outline-danger btn-sm icon-btn";
     deleteBtn.title = "Delete note";
+    deleteBtn.setAttribute("aria-label", "Delete note");
     deleteBtn.innerHTML = `<i class="bi bi-trash"></i>`;
 
     deleteBtn.onclick = (e) => {
@@ -305,7 +440,7 @@ function renderRoot() {
 /* -------- NOTE VIEW (SECTIONS) -------- */
 
 function renderNoteView(noteId) {
-  const note = notes.find(n => n.id === noteId);
+  const note = findNoteById(noteId);
   if (!note) return;
 
   if (note.sections.length === 0) {
@@ -337,21 +472,17 @@ function renderNoteView(noteId) {
     renderSection(note, section);
   });
 
-  updateToggleAllUI(note.sections.every(s => s.collapsed));
   const sectionCount = note.sections.length;
 
-setToggleAllVisibility(true, sectionCount <= 1);
-
-// Update icon state correctly
-updateToggleAllUI(
-  sectionCount > 0 && note.sections.every(s => s.collapsed)
-);
+  setToggleAllVisibility(true, sectionCount <= 1);
+  updateToggleAllUI(sectionCount > 0 && note.sections.every(s => s.collapsed));
 
 }
 
 /* -------- SECTION -------- */
 
 function renderSection(note, section) {
+  if (!note || !Array.isArray(note.sections) || !section || !isValidId(section.id)) return;
   const sec = document.createElement("section");
 sec.className = "note";
 sec.dataset.sectionId = section.id;
@@ -359,8 +490,12 @@ sec.dataset.sectionId = section.id;
   sec.dataset.id = section.id;
 
   const header = document.createElement("div");
-  header.className = "d-flex justify-content-between align-items-center";
+  header.className = "section-drag-handle d-flex justify-content-between align-items-center";
   header.draggable = true;
+  header.tabIndex = 0;
+  header.dataset.sectionId = section.id;
+  header.setAttribute("aria-label", `${section.title || "Untitled Section"}. Press Alt and Up or Down Arrow to reorder.`);
+  header.setAttribute("aria-keyshortcuts", "Alt+ArrowUp Alt+ArrowDown");
   header.style.cursor = "grab";
   header.addEventListener("dragstart", () => {
     sec.classList.add("opacity-50");
@@ -372,14 +507,23 @@ sec.dataset.sectionId = section.id;
     render();
   });
 
+  header.addEventListener("keydown", (e) => {
+    if (e.target !== header || !e.altKey) return;
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      e.preventDefault();
+      moveSectionWithKeyboard(note, section, e.key === "ArrowUp" ? -1 : 1);
+    }
+  });
+
 sec.addEventListener("dragover", (e) => {
   e.preventDefault();
   const dragging = document.querySelector(".opacity-50");
   if (!dragging || dragging === sec) return;
-  const from = note.sections.findIndex(s => s.id === dragging.dataset.id);
-  const to = note.sections.findIndex(s => s.id === section.id);
-  if (from === to) return;
-  moveItem(note.sections, from, to);
+  const draggedSection = note.sections.find((candidate) => candidate?.id === dragging.dataset.id);
+  if (!draggedSection || draggedSection.completed !== section.completed) return;
+  const from = note.sections.indexOf(draggedSection);
+  const to = note.sections.indexOf(section);
+  if (!moveItem(note.sections, from, to)) return;
   sec.parentNode.insertBefore(dragging, from < to ? sec.nextSibling : sec);
 });
 
@@ -388,6 +532,7 @@ sec.addEventListener("dragover", (e) => {
   const sectionCheckBtn = document.createElement("button");
   sectionCheckBtn.className = "check-btn flex-shrink-0" + (section.completed ? " checked" : "");
   sectionCheckBtn.title = section.completed ? "Mark incomplete" : "Mark complete";
+  sectionCheckBtn.setAttribute("aria-label", section.completed ? "Mark section incomplete" : "Mark section complete");
   sectionCheckBtn.innerHTML = section.completed
     ? `<i class="bi bi-check-circle-fill"></i>`
     : `<i class="bi bi-circle"></i>`;
@@ -481,6 +626,7 @@ attachLinkTooltip(title, (oldText, href) => {
   const deleteBtn = document.createElement("button");
 deleteBtn.className = "btn btn-outline-danger btn-sm icon-btn";
 deleteBtn.title = "Delete section";
+deleteBtn.setAttribute("aria-label", "Delete section");
 deleteBtn.innerHTML = `<i class="bi bi-trash"></i>`;
 
 deleteBtn.onclick = () => {
@@ -510,6 +656,7 @@ actions.appendChild(deleteBtn);
   const collapseBtn = document.createElement("button");
   collapseBtn.className = "btn btn-outline-light btn-sm icon-btn";
   collapseBtn.title = section.collapsed ? "Expand" : "Collapse";
+  collapseBtn.setAttribute("aria-label", section.collapsed ? "Expand section" : "Collapse section");
 
   const icon = document.createElement("i");
   icon.className = section.collapsed ? "bi bi-chevron-down" : "bi bi-chevron-up";
@@ -519,6 +666,8 @@ actions.appendChild(deleteBtn);
     section.collapsed = !section.collapsed;
     content.style.display = section.collapsed ? "none" : "block";
     icon.className = section.collapsed ? "bi bi-chevron-down" : "bi bi-chevron-up";
+    collapseBtn.title = section.collapsed ? "Expand" : "Collapse";
+    collapseBtn.setAttribute("aria-label", section.collapsed ? "Expand section" : "Collapse section");
     save();
   };
 
@@ -555,22 +704,27 @@ actions.appendChild(deleteBtn);
 
   content.oninput = () => {
     section.content = content.innerText;
-    save();
+    scheduleContentSave();
   };
 
   content.addEventListener("paste", (e) => {
     e.preventDefault();
-    const html  = e.clipboardData.getData("text/html");
-    const plain = e.clipboardData.getData("text/plain").trim();
+    const html = e.clipboardData.getData("text/html");
+    const plain = e.clipboardData.getData("text/plain");
+
+    if (plain.length > MAX_PASTE_LENGTH || html.length > MAX_PASTE_LENGTH) {
+      alert(`Paste is limited to ${MAX_PASTE_LENGTH.toLocaleString()} characters.`);
+      return;
+    }
 
     if (html) {
-      const tmp = document.createElement("div");
-      tmp.innerHTML = html;
+      const tmp = new DOMParser().parseFromString(html, "text/html");
       const anchors = tmp.querySelectorAll("a[href]");
       if (anchors.length > 0) {
         const text = Array.from(anchors).map(a => {
-          const href  = a.href;
-          const label = a.innerText.trim() || href;
+          const href = normalizeHttpUrl(a.getAttribute("href"));
+          const label = a.textContent.trim() || href;
+          if (!href) return label;
           return label === href ? href : `[${label}](${href})`;
         }).join(" ");
         document.execCommand("insertText", false, text);
@@ -580,19 +734,19 @@ actions.appendChild(deleteBtn);
       }
     }
 
-    if (/^https?:\/\/\S+$/.test(plain)) {
-      document.execCommand("insertText", false, plain);
+    const pastedText = plain.trim();
+    const pastedUrl = /^https?:\/\/\S+$/.test(pastedText) ? normalizeHttpUrl(pastedText) : null;
+    if (pastedUrl) {
+      document.execCommand("insertText", false, pastedUrl);
       section.content = content.innerText;
       save();
 
-      fetch(plain)
+      fetch(pastedUrl, { credentials: "omit", referrerPolicy: "no-referrer" })
         .then(r => r.text())
         .then(pageHtml => {
-          const match = pageHtml.match(/<title[^>]*>([^<]+)<\/title>/i);
-          if (!match) return;
-          const title = match[1].trim().replace(/\s+/g, " ");
-          if (title && title !== plain) {
-            section.content = section.content.replace(plain, `[${title}](${plain})`);
+          const title = new DOMParser().parseFromString(pageHtml, "text/html").title.trim().replace(/\s+/g, " ");
+          if (title && title !== pastedUrl) {
+            section.content = section.content.replace(pastedUrl, `[${title}](${pastedUrl})`);
             save();
           }
         })
@@ -616,7 +770,7 @@ actions.appendChild(deleteBtn);
   content.onblur = () => {
     content.contentEditable = false;
     section.content = content.innerText.replace(/[\n\r]+$/, "");
-    save();
+    flushContentSave();
     content.innerHTML = renderMarkdown(section.content);
   };
 
@@ -625,10 +779,44 @@ actions.appendChild(deleteBtn);
 }
 
 /* -------- BUTTONS -------- */
-document.getElementById("addNoteInput").addEventListener("keydown", (e) => {
-  if (e.key !== "Enter") return;
-  const title = e.target.value.trim();
-  if (!title) return;
+const searchBtn = document.getElementById("searchBtn");
+const searchBar = document.getElementById("searchBar");
+const searchNotes = document.getElementById("searchNotes");
+
+function setSearchOpen(open) {
+  searchBar.hidden = !open;
+  searchBtn.setAttribute("aria-expanded", String(open));
+  if (open) {
+    requestAnimationFrame(() => searchNotes.focus());
+  } else {
+    noteSearchQuery = "";
+    searchNotes.value = "";
+    render();
+  }
+}
+
+searchBtn.onclick = () => setSearchOpen(searchBar.hidden);
+
+searchNotes.addEventListener("input", () => {
+  noteSearchQuery = searchNotes.value;
+  render();
+});
+
+searchNotes.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  e.preventDefault();
+  setSearchOpen(false);
+  searchBtn.focus();
+});
+
+const addNoteInput = document.getElementById("addNoteInput");
+
+function createNoteFromInput() {
+  const title = addNoteInput.value.trim();
+  if (!title) {
+    addNoteInput.focus();
+    return;
+  }
 
   const newNote = {
     id: uid(),
@@ -640,29 +828,38 @@ document.getElementById("addNoteInput").addEventListener("keydown", (e) => {
 
   notes.unshift(newNote);
   save();
-  e.target.value = "";
+  addNoteInput.value = "";
   render();
+  addNoteInput.focus();
+}
+
+addNoteInput.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  createNoteFromInput();
 });
+
+document.getElementById("addNoteBtn").onclick = createNoteFromInput;
 
 document.getElementById("closeDetail").onclick = () => {
   if (history.state?.noteOpen) {
     history.back();
   } else {
-    currentNoteId = null;
+    setCurrentNoteId(null);
     render();
   }
 };
 
 window.addEventListener("popstate", () => {
   if (currentNoteId !== null) {
-    currentNoteId = null;
+    setCurrentNoteId(null);
     render();
   }
 });
 
 document.getElementById("addSectionBtn").onclick = () => {
-  if (currentNoteId === null) return;
-  const note = notes.find(n => n.id === currentNoteId);
+  const note = findNoteById(currentNoteId);
+  if (!note) return;
 
   const newSection = {
     id: uid(),
@@ -704,28 +901,20 @@ document.getElementById("importNotes").onchange = (e) => {
   const reader = new FileReader();
   reader.onload = () => {
     try {
-      const data = JSON.parse(reader.result);
-
-      if (Array.isArray(data)) {
-        notes = data;
-      } else if (data && typeof data === "object" && Array.isArray(data.notes)) {
-        notes = data.notes;
-        if (typeof data.panelSplit === "number") {
-          localStorage.setItem("panelSplit", data.panelSplit);
+      const { notes: importedNotes, panelSplit } = getImportData(JSON.parse(reader.result));
+      if (!replaceNotesFromImport(notes, importedNotes, { onError: reportImportStorageError })) return;
+      notes = importedNotes;
+      storageErrorShown = false;
+      if (panelSplit !== null) {
+        try {
+          localStorage.setItem("panelSplit", panelSplit);
+        } catch (error) {
+          reportStorageError(error);
         }
-      } else if (data && typeof data === "object" && Array.isArray(data.sections)) {
-        notes = [data];
-      } else {
-        alert("Import failed: expected an array of notes.");
-        return;
       }
-
-      save();
       render();
     } catch (err) {
-      if (err.name === "QuotaExceededError" || err.name === "NS_ERROR_DOM_QUOTA_REACHED") {
-        alert("Import failed: data is too large for browser storage (~5MB limit). Try splitting into smaller files.");
-      } else if (err instanceof SyntaxError) {
+      if (err instanceof SyntaxError) {
         alert("Import failed: invalid JSON file.");
       } else {
         alert("Import failed: " + err.message);
@@ -754,10 +943,8 @@ document.getElementById("exportNotes").onclick = () => {
 };
 
 document.getElementById("toggleAll").onclick = () => {
-  if (currentNoteId === null) return;
-
-const note = notes.find(n => n.id === currentNoteId);
-if (!note || note.sections.length <= 1) return;
+  const note = findNoteById(currentNoteId);
+  if (!note || note.sections.length <= 1) return;
 
   const shouldCollapse = note.sections.some(s => !s.collapsed);
 
@@ -773,6 +960,9 @@ function updateToggleAllUI(collapsed) {
 
   toggleAllText.innerText = collapsed ? "Expand" : "Collapse";
   toggleAllIcon.style.transform = collapsed ? "rotate(180deg)" : "rotate(0deg)";
+  document.getElementById("toggleAll").setAttribute(
+    "aria-label", collapsed ? "Expand all sections" : "Collapse all sections"
+  );
 }
 
 /* -------- SCROLL THUMB -------- */
@@ -789,6 +979,12 @@ function updateScrollThumb() {
   const trackTop = el.offsetTop;
   const trackHeight = el.clientHeight;
 
+  if (trackHeight <= thumbSize) {
+    scrollThumb.classList.remove("visible");
+    scrollTrack.classList.remove("visible");
+    return;
+  }
+
   scrollTrack.classList.add("visible");
   scrollTrack.style.top = trackTop + "px";
   scrollTrack.style.height = trackHeight + "px";
@@ -799,68 +995,100 @@ function updateScrollThumb() {
 }
 
 listContainer.addEventListener("scroll", updateScrollThumb);
+window.addEventListener("resize", updateScrollThumb);
 
 let isScrollDragging = false;
+let scrollPointerId = null;
 let scrollDragStartY = 0;
 let scrollDragStartTop = 0;
 
-scrollThumb.addEventListener("mousedown", (e) => {
+scrollThumb.addEventListener("pointerdown", (e) => {
+  if (e.button !== undefined && e.button !== 0) return;
   isScrollDragging = true;
+  scrollPointerId = e.pointerId;
   scrollDragStartY = e.clientY;
   scrollDragStartTop = listContainer.scrollTop;
+  scrollThumb.setPointerCapture(e.pointerId);
   document.body.style.cursor = "grabbing";
   document.body.style.userSelect = "none";
-  e.stopPropagation();
   e.preventDefault();
 });
 
-document.addEventListener("mousemove", (e) => {
-  if (!isScrollDragging) return;
+scrollThumb.addEventListener("pointermove", (e) => {
+  if (!isScrollDragging || e.pointerId !== scrollPointerId) return;
   const el = listContainer;
   const thumbSize = 75;
   const dy = e.clientY - scrollDragStartY;
   const scrollRange = el.scrollHeight - el.clientHeight;
-  el.scrollTop = scrollDragStartTop + dy * scrollRange / (el.clientHeight - thumbSize);
+  const thumbRange = el.clientHeight - thumbSize;
+  if (scrollRange <= 0 || thumbRange <= 0) return;
+  el.scrollTop = scrollDragStartTop + dy * scrollRange / thumbRange;
 });
 
-document.addEventListener("mouseup", () => {
-  if (!isScrollDragging) return;
+function endScrollDrag(e) {
+  if (!isScrollDragging || (e && e.pointerId !== scrollPointerId)) return;
   isScrollDragging = false;
+  scrollPointerId = null;
   document.body.style.cursor = "";
   document.body.style.userSelect = "";
-});
+}
+
+scrollThumb.addEventListener("pointerup", endScrollDrag);
+scrollThumb.addEventListener("pointercancel", endScrollDrag);
+scrollThumb.addEventListener("lostpointercapture", endScrollDrag);
 
 /* -------- PANEL RESIZE -------- */
 let isDragging = false;
+let resizePointerId = null;
 
-resizeHandle.addEventListener("mousedown", (e) => {
+function setPanelSplit(leftPct, persist = false) {
+  const split = Math.min(Math.max(leftPct, 20), 80);
+  panelLeft.style.width = `${split}%`;
+  panelRight.style.width = `${100 - split}%`;
+  if (persist) {
+    try {
+      localStorage.setItem("panelSplit", split);
+    } catch (error) {
+      reportStorageError(error);
+    }
+  }
+}
+
+resizeHandle.addEventListener("pointerdown", (e) => {
+  if (e.button !== undefined && e.button !== 0) return;
   isDragging = true;
+  resizePointerId = e.pointerId;
+  resizeHandle.setPointerCapture(e.pointerId);
   document.body.style.cursor = "col-resize";
   document.body.style.userSelect = "none";
   e.preventDefault();
 });
 
-document.addEventListener("mousemove", (e) => {
-  if (!isDragging) return;
+resizeHandle.addEventListener("pointermove", (e) => {
+  if (!isDragging || e.pointerId !== resizePointerId) return;
   const wrapper = document.querySelector(".app-wrapper");
   const rect = wrapper.getBoundingClientRect();
   const leftPct = Math.min(Math.max(((e.clientX - rect.left) / rect.width) * 100, 20), 80);
   panelLeft.style.transition = "none";
   panelRight.style.transition = "none";
-  panelLeft.style.width = `${leftPct}%`;
-  panelRight.style.width = `${100 - leftPct}%`;
+  setPanelSplit(leftPct);
 });
 
-document.addEventListener("mouseup", () => {
-  if (!isDragging) return;
+function endPanelResize(e) {
+  if (!isDragging || (e && e.pointerId !== resizePointerId)) return;
   isDragging = false;
+  resizePointerId = null;
   document.body.style.cursor = "";
   document.body.style.userSelect = "";
   panelLeft.style.transition = "";
   panelRight.style.transition = "";
   const leftPct = parseFloat(panelLeft.style.width);
-  if (!isNaN(leftPct)) localStorage.setItem("panelSplit", leftPct);
-});
+  if (!isNaN(leftPct)) setPanelSplit(leftPct, true);
+}
+
+resizeHandle.addEventListener("pointerup", endPanelResize);
+resizeHandle.addEventListener("pointercancel", endPanelResize);
+resizeHandle.addEventListener("lostpointercapture", endPanelResize);
 
 /* -------- LINK EDIT MODAL -------- */
 const linkModal        = document.getElementById("linkModal");
@@ -873,16 +1101,23 @@ function editLink(oldText, oldUrl, getContent, setContent, rerender) {
   document.getElementById("linkOk").textContent = "Update";
   linkDisplayInput.value = oldText;
   linkUrlInput.value = oldUrl;
-  linkModal.style.display = "flex";
-  linkDisplayInput.focus();
+  showModal(linkModal, linkDisplayInput);
 
   const finish = (confirmed) => {
-    linkModal.style.display = "none";
-    document.removeEventListener("keydown", onKey);
-    if (!confirmed) return;
+    if (!confirmed) {
+      hideModal(linkModal);
+      document.removeEventListener("keydown", onKey);
+      return;
+    }
 
     const newText = linkDisplayInput.value.trim() || oldUrl;
-    const newUrl  = linkUrlInput.value.trim() || oldUrl;
+    const newUrl = normalizeHttpUrl(linkUrlInput.value.trim() || oldUrl);
+    if (!newUrl) {
+      alert("Links must use an http:// or https:// URL.");
+      return;
+    }
+    hideModal(linkModal);
+    document.removeEventListener("keydown", onKey);
     const oldMd   = oldText === oldUrl ? oldUrl : `[${oldText}](${oldUrl})`;
     const newMd   = newText === newUrl ? newUrl : `[${newText}](${newUrl})`;
     setContent(getContent().replace(oldMd, newMd));
@@ -910,39 +1145,42 @@ linkHoverTooltip.addEventListener("mouseleave", () => {
   hideTooltipTimer = setTimeout(() => { linkHoverTooltip.style.display = "none"; }, 200);
 });
 
-function attachLinkTooltip(element, editCb) {
-  element.addEventListener("mouseover", (e) => {
-    if (element.contentEditable === "true") return;
-    const a = e.target.closest("a[href]");
-    if (!a) return;
-    clearTimeout(hideTooltipTimer);
+function showLinkTooltip(element, target, editCb) {
+  if (element.contentEditable === "true") return;
+  const a = target.closest("a[href]");
+  const href = a && normalizeHttpUrl(a.getAttribute("href"));
+  if (!a || !href) return;
+  clearTimeout(hideTooltipTimer);
 
-    const href = a.getAttribute("href");
-    document.getElementById("linkHoverUrl").textContent = href;
-    linkHoverTooltip.style.display = "flex";
+  document.getElementById("linkHoverUrl").textContent = href;
+  linkHoverTooltip.style.display = "flex";
 
-    const rect = a.getBoundingClientRect();
-    linkHoverTooltip.style.left = `${rect.left}px`;
-    linkHoverTooltip.style.top  = `${rect.bottom + 4}px`;
+  const rect = a.getBoundingClientRect();
+  linkHoverTooltip.style.left = `${rect.left}px`;
+  linkHoverTooltip.style.top  = `${rect.bottom + 4}px`;
 
-    requestAnimationFrame(() => {
-      const tr = linkHoverTooltip.getBoundingClientRect();
-      if (tr.right > window.innerWidth)
-        linkHoverTooltip.style.left = `${window.innerWidth - tr.width - 8}px`;
-    });
-
-    document.getElementById("linkHoverOpen").onclick = (ev) => {
-      ev.stopPropagation();
-      window.open(href, "_blank", "noopener noreferrer");
-      linkHoverTooltip.style.display = "none";
-    };
-
-    document.getElementById("linkHoverEdit").onclick = (ev) => {
-      ev.stopPropagation();
-      linkHoverTooltip.style.display = "none";
-      editCb(a.innerText.trim(), href);
-    };
+  requestAnimationFrame(() => {
+    const tr = linkHoverTooltip.getBoundingClientRect();
+    if (tr.right > window.innerWidth)
+      linkHoverTooltip.style.left = `${window.innerWidth - tr.width - 8}px`;
   });
+
+  document.getElementById("linkHoverOpen").onclick = (ev) => {
+    ev.stopPropagation();
+    window.open(href, "_blank", "noopener noreferrer");
+    linkHoverTooltip.style.display = "none";
+  };
+
+  document.getElementById("linkHoverEdit").onclick = (ev) => {
+    ev.stopPropagation();
+    linkHoverTooltip.style.display = "none";
+    editCb(a.innerText.trim(), href);
+  };
+}
+
+function attachLinkTooltip(element, editCb) {
+  element.addEventListener("mouseover", (e) => showLinkTooltip(element, e.target, editCb));
+  element.addEventListener("focusin", (e) => showLinkTooltip(element, e.target, editCb));
 
   element.addEventListener("mouseleave", () => {
     hideTooltipTimer = setTimeout(() => { linkHoverTooltip.style.display = "none"; }, 200);
@@ -951,15 +1189,61 @@ function attachLinkTooltip(element, editCb) {
 
 /* -------- HELP -------- */
 const helpModal = document.getElementById("helpModal");
-document.getElementById("helpBtn").onclick = () => { helpModal.style.display = "flex"; };
-document.getElementById("helpClose").onclick = () => { helpModal.style.display = "none"; };
-helpModal.addEventListener("click", (e) => { if (e.target === helpModal) helpModal.style.display = "none"; });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && helpModal.style.display === "flex") helpModal.style.display = "none"; });
+let activeModal = null;
+let modalReturnFocus = null;
+
+function getModalFocusables(modal) {
+  return Array.from(modal.querySelectorAll(
+    'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )).filter((element) => element.getClientRects().length > 0);
+}
+
+function showModal(modal, initialFocus) {
+  modalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  activeModal = modal;
+  modal.style.display = "flex";
+  requestAnimationFrame(() => (initialFocus || getModalFocusables(modal)[0])?.focus());
+}
+
+function hideModal(modal) {
+  if (activeModal === modal) activeModal = null;
+  modal.style.display = "none";
+  const returnFocus = modalReturnFocus;
+  modalReturnFocus = null;
+  returnFocus?.focus();
+}
+
+document.addEventListener("keydown", (e) => {
+  if (!activeModal || e.key !== "Tab") return;
+  const focusables = getModalFocusables(activeModal);
+  if (focusables.length === 0) {
+    e.preventDefault();
+    return;
+  }
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
+});
+
+const helpClose = document.getElementById("helpClose");
+const closeHelp = () => hideModal(helpModal);
+document.getElementById("helpBtn").onclick = () => showModal(helpModal, helpClose);
+helpClose.onclick = closeHelp;
+helpModal.addEventListener("click", (e) => { if (e.target === helpModal) closeHelp(); });
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && activeModal === helpModal) closeHelp();
+});
 
 /* -------- DETAIL TITLE LINK TOOLTIP -------- */
 const detailTitleEl = document.getElementById("detailTitle");
 attachLinkTooltip(detailTitleEl, (oldText, href) => {
-  const note = notes.find(n => n.id === currentNoteId);
+  const note = findNoteById(currentNoteId);
   if (!note) return;
   editLink(oldText, href,
     () => note.title,
@@ -975,6 +1259,7 @@ function applyTheme(light) {
   themeToggle.innerHTML = light
     ? `<i class="bi bi-moon"></i>`
     : `<i class="bi bi-sun"></i>`;
+  themeToggle.setAttribute("aria-label", light ? "Switch to dark theme" : "Switch to light theme");
 }
 
 applyTheme(localStorage.getItem("theme") === "light");
@@ -982,9 +1267,7 @@ applyTheme(localStorage.getItem("theme") === "light");
 themeToggle.onclick = () => {
   const isLight = document.body.classList.toggle("light-theme");
   localStorage.setItem("theme", isLight ? "light" : "dark");
-  themeToggle.innerHTML = isLight
-    ? `<i class="bi bi-moon"></i>`
-    : `<i class="bi bi-sun"></i>`;
+  applyTheme(isLight);
 };
 
 /* -------- INIT -------- */

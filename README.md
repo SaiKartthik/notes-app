@@ -3,10 +3,23 @@
 A minimal **note-taking web app with sections**, inspired by Google Keep / Notes, but built from scratch using plain **HTML, JavaScript, and Bootstrap**.
 
 TODO:
-- Keyboard shortcuts
+- Additional keyboard shortcuts
 - Integrate cloud
 - multiple notes
 - Migrate storage from localStorage to IndexedDB (remove ~5MB cap)
+
+{v0.9} Stability & Safety
+- Safe HTML escaping and safe Markdown/link rendering; only HTTP(S) links are active
+- Safer paste handling, protected localStorage loading, and validated/normalized note imports
+- Imports create a timestamped backup before replacing existing notes
+- Storage quota/write failures keep in-memory notes available and report the problem
+- Section-content saves are debounced while typing, with immediate saves for explicit actions
+- Toggle All now correctly hides outside note detail and is disabled when there are too few sections
+- Active and completed items cannot be reordered across their group boundary; completed notes remain completion-date sorted
+- URL title fetching no longer overwrites section content edited after the URL was pasted
+- Pointer-based panel resizing and custom scroll dragging support mouse, touch, and pen
+- Improved focus states, icon-button labels, modal focus handling, and keyboard note/section reordering
+- Header search filters note titles, section titles, and section content without changing note order
 
 {v0.8} Supernova
 - Empty section content shows "Click to write..." placeholder with min-height
